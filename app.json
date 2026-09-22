@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Folia",
+    "slug": "folia",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": { "package": "fr.folia.app" },
+    "plugins": [
+      "expo-notifications",
+      ["expo-image-picker", { "photosPermission": "Ajouter une photo à votre carnet de plantes.", "cameraPermission": "Photographier vos plantes.", "microphonePermission": false }]
+    ]
+  }
+}
