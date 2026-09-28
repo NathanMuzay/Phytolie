@@ -8,16 +8,36 @@ export type PlantIdentification = {
 
 type ApiError = { error?: string };
 
+async function requestJson(url: string, options: RequestInit, timeoutMs: number, timeoutMessage: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    let data;
+    try { data = await response.json(); }
+    catch (error) {
+      if (controller.signal.aborted) throw error;
+      throw new Error('Réponse du serveur invalide. Vérifiez EXPO_PUBLIC_API_URL et redémarrez Expo.');
+    }
+    if (!response.ok) throw new Error((data as ApiError)?.error || `Erreur du serveur (${response.status}).`);
+    return data;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error(timeoutMessage);
+    if (error instanceof TypeError) throw new Error(`Serveur Folia inaccessible (${url}). Lancez npm run api et vérifiez l’adresse EXPO_PUBLIC_API_URL et le Wi-Fi.`);
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+
 export async function identifyPlant(base64: string): Promise<PlantIdentification> {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
   if (!apiUrl) throw new Error('API_NOT_CONFIGURED');
 
-  const response = await fetch(`${apiUrl}/identify`, {
+  // Check connectivity before uploading the photo or using identification credits.
+  await requestJson(`${apiUrl}/health`, { method: 'GET' }, 5000,
+    'Serveur Folia injoignable après 5 secondes. Lancez npm run api, vérifiez EXPO_PUBLIC_API_URL puis redémarrez Expo.');
+  return await requestJson(`${apiUrl}/identify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64.replace(/^data:image\/[^;]+;base64,/, '') }),
-  });
-  const data = await response.json() as PlantIdentification & ApiError;
-  if (!response.ok) throw new Error(data.error || 'API_ERROR');
-  return data;
+  }, 55000, 'L’identification dépasse 55 secondes. Vérifiez votre connexion puis réessayez.') as PlantIdentification;
 }

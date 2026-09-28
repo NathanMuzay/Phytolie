@@ -77,6 +77,7 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 - Erreur liée à Node ou `File is not defined` : vérifiez `node --version`, puis `nvm use`.
 - QR code inaccessible : vérifiez le Wi-Fi, le pare-feu et le VPN. Vous pouvez essayer `npx expo start --tunnel` (connexion Internet et installation éventuelle du module de tunnel nécessaires).
 - Message « API non configurée » : vérifiez que `.env` existe, puis redémarrez Expo après toute modification du fichier.
+- Scan bloqué : ouvrez `http://<IP-de-votre-ordinateur>:8787/health` depuis le navigateur du téléphone. Une réponse `{"status":"ok"}` confirme que le serveur est joignable. Le scan vérifie cette connexion pendant 5 secondes maximum avant l’envoi de la photo. Après un changement de réseau, mettez à jour `EXPO_PUBLIC_API_URL` et redémarrez Expo.
 - Message « Impossible de contacter plant.id » : vérifiez que `npm run api` fonctionne, que `EXPO_PUBLIC_API_URL` contient l’IP de l’ordinateur et que le port `8787` est accessible depuis le téléphone. Le tunnel Expo ne rend pas automatiquement ce serveur API accessible.
 - Erreur 401 : la clé plant.id est incorrecte. Erreur 429 : les crédits plant.id sont épuisés.
 - Cache Metro : `npx expo start --clear`.

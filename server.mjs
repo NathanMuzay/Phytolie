@@ -9,7 +9,7 @@ function send(response, status, payload) {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   });
   response.end(JSON.stringify(payload));
 }
@@ -26,6 +26,11 @@ function wateringText(value) {
 
 const server = createServer((request, response) => {
   if (request.method === 'OPTIONS') return send(response, 204, {});
+  if (request.method === 'GET' && request.url === '/health') {
+    return API_KEY
+      ? send(response, 200, { status: 'ok' })
+      : send(response, 503, { error: 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.' });
+  }
   if (request.method !== 'POST' || request.url !== '/identify') return send(response, 404, { error: 'Route introuvable.' });
   if (!API_KEY) return send(response, 503, { error: 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.' });
 
@@ -42,14 +47,14 @@ const server = createServer((request, response) => {
       const apiResponse = await fetch('https://api.plant.id/v3/identification?details=common_names,taxonomy,watering,description&language=fr', {
         method: 'POST',
         headers: { 'Api-Key': API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: [image], similar_images: false }),
+        body: JSON.stringify({ images: [image] }),
         signal: AbortSignal.timeout(45000),
       });
-      const result = await apiResponse.json();
       if (!apiResponse.ok) {
         const message = apiResponse.status === 401 ? 'Clé plant.id invalide.' : apiResponse.status === 429 ? 'Crédits plant.id épuisés.' : 'Le service plant.id a refusé la requête.';
         return send(response, apiResponse.status, { error: message });
       }
+      const result = await apiResponse.json();
       if (result?.result?.is_plant?.binary === false) return send(response, 422, { error: 'Aucune plante n’a été détectée sur cette photo.' });
       const suggestion = result?.result?.classification?.suggestions?.[0];
       if (!suggestion) return send(response, 422, { error: 'La plante n’a pas pu être reconnue. Essayez une feuille nette et la plante entière.' });
