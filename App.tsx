@@ -6,6 +6,8 @@ import { File, Paths } from 'expo-file-system';
 import { Garden, Plant, STORAGE_KEY, daysUntil, dueDate, parseGarden, waterPlant, sortPlantsByUrgency } from './src/model';
 import { requestReminders, syncReminders } from './src/notifications';
 import { careDefaults, estimateWaterAmount } from './src/care';
+import { wateringPlan, defaultIrrigation, Irrigation } from './src/irrigation';
+import { searchCities, fetchWeather, outdoorTemperature, City, Weather } from './src/weather';
 import { identifyPlant, PlantIdentification } from './src/plantApi';
 
 const empty: Garden = { plants: [], reminders: false };
@@ -21,6 +23,13 @@ function Field({ label, value, onChange, numeric = false, placeholder = '' }: { 
 }
 
 export default function App() {
+  const [irrigation, setIrrigation] = useState<Irrigation>({ ...defaultIrrigation });
+  const [lastWateredInput, setLastWateredInput] = useState('');
+  const [cityQuery, setCityQuery] = useState('');
+  const [cities, setCities] = useState<City[]>([]);
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [weatherStatus, setWeatherStatus] = useState('');
+  const [searchingCity, setSearchingCity] = useState(false);
   const [garden, setGarden] = useState<Garden>(empty);
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -41,8 +50,32 @@ export default function App() {
   const [, refresh] = useState(0);
   const scheduleQueue = useRef(Promise.resolve());
 
+  function withWeather(plants: Plant[], city = garden.city) {
+    const temperature = outdoorTemperature(weather, city);
+    return plants.map(p => p.irrigation?.location === 'outdoor' && temperature != null ? { ...p, temperature } : p);
+  }
+  useEffect(() => {
+    if (!garden.city) { setWeather(null); return; }
+    const city = garden.city;
+    let active = true;
+    async function update() {
+      try { const next = await fetchWeather(city); if (active) { setWeather(next); setWeatherStatus(''); } }
+      catch (error) { if (active) { setWeather(null); setWeatherStatus(error instanceof Error ? error.message : 'Météo indisponible.'); } }
+    }
+    void update();
+    const timer = setInterval(() => void update(), 3600000);
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void update(); });
+    return () => { active = false; clearInterval(timer); subscription.remove(); };
+  }, [garden.city?.id]);
+  useEffect(() => { if (ready && !loadFailed) schedule(garden); }, [weather]);
+  async function findCities() {
+    setSearchingCity(true); setCities([]);
+    try { const results = await searchCities(cityQuery); setCities(results); setWeatherStatus(results.length ? 'Choisissez la ville correspondante.' : 'Aucune ville trouvée.'); }
+    catch (error) { setWeatherStatus(error instanceof Error ? error.message : 'Recherche impossible.'); }
+    finally { setSearchingCity(false); }
+  }
   function schedule(next: Garden) {
-    scheduleQueue.current = scheduleQueue.current.catch(() => {}).then(() => syncReminders(next.plants, next.reminders)).catch(() => {
+    scheduleQueue.current = scheduleQueue.current.catch(() => {}).then(() => syncReminders(withWeather(next.plants, next.city), next.reminders)).catch(() => {
       setNotice('Données enregistrées, mais les rappels n’ont pas pu être programmés. Vérifiez les autorisations dans Android.');
     });
   }
@@ -56,7 +89,7 @@ export default function App() {
     const subscription = AppState.addEventListener('change', state => { if (state === 'active' && ready && !loadFailed) { refresh(n => n + 1); schedule(garden); } });
     const timer = setInterval(() => refresh(n => n + 1), 60000);
     return () => { subscription.remove(); clearInterval(timer); };
-  }, [garden, ready, loadFailed]);
+  }, [garden, ready, loadFailed, weather]);
 
   async function save(next: Garden): Promise<boolean> {
     if (lock.current || loadFailed) return false;
@@ -132,20 +165,25 @@ export default function App() {
     const existing = editingId ? garden.plants.find(p => p.id === editingId) : undefined;
     if (editingId && !existing) { setError("Cette plante n’existe plus."); return; }
     if (!form.name.trim()) { setError('Donnez un nom à votre plante.'); return; }
+    if (!Number.isFinite(irrigation.depth) || irrigation.depth <= 0 || irrigation.depth > 100 || Number(form.pot) > 100) { setError('Diamètre et profondeur du pot : entre 1 et 100 cm.'); return; }
+    const initialWatered = !editingId && lastWateredInput ? new Date(`${lastWateredInput}T00:00:00`) : null;
+    if (initialWatered && (!/^\d{4}-\d{2}-\d{2}$/.test(lastWateredInput) || !Number.isFinite(+initialWatered) || `${initialWatered.getFullYear()}-${String(initialWatered.getMonth() + 1).padStart(2, '0')}-${String(initialWatered.getDate()).padStart(2, '0')}` !== lastWateredInput || +initialWatered > Date.now())) { setError('Dernier arrosage : une date passée valide au format AAAA-MM-JJ.'); return; }
     const interval = Number(form.interval), height = Number(form.height), pot = Number(form.pot), temperature = Number(form.temperature), waterAmount = Number(form.waterAmount);
     if (!Number.isInteger(interval) || interval < 1 || interval > 90 || !Number.isFinite(height) || height <= 0 || !Number.isFinite(pot) || pot <= 0 || !form.temperature.trim() || !Number.isFinite(temperature) || temperature < -10 || temperature > 50 || !Number.isFinite(waterAmount) || waterAmount < 0 || waterAmount > 5000) { setError('Vérifiez les valeurs : fréquence de 1 à 90 jours, dimensions positives, température de −10 à 50 °C et quantité de 0 à 5 000 ml.'); return; }
     const repot = form.repotDate ? new Date(`${form.repotDate}T12:00:00`) : new Date(new Date().setFullYear(new Date().getFullYear() + 1));
     if (form.repotDate && (!/^\d{4}-\d{2}-\d{2}$/.test(form.repotDate) || !Number.isFinite(+repot) || repot.toISOString().slice(0, 10) !== form.repotDate)) { setError('La date doit être valide, au format AAAA-MM-JJ.'); return; }
-    const plant: Plant = { ...form, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? [] };
+    const plant: Plant = { ...form, irrigation, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? initialWatered?.toISOString() ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? (initialWatered ? [initialWatered.toISOString()] : []) };
     if (await save({ ...garden, plants: existing ? garden.plants.map(p => p.id === existing.id ? plant : p) : [...garden.plants, plant] })) { setModal(false); setEditingId(null); setForm(initialForm); setNotice(existing ? 'Fiche modifiée. Historique des arrosages conservé.' : 'Plante ajoutée. Aucun arrosage n’est enregistré pour le moment.'); }
   }
-  const sortedPlants = sortPlantsByUrgency(garden.plants);
-  const collection = sortByUrgency ? sortedPlants : garden.plants;
+  const sortedPlants = sortPlantsByUrgency(withWeather(garden.plants));
+  const collection = sortByUrgency ? sortedPlants : withWeather(garden.plants);
   const due = sortedPlants.filter(p => daysUntil(dueDate(p)) <= 0);
-  const current = garden.plants.find(p => p.id === selected);
+  const current = withWeather(garden.plants).find(p => p.id === selected);
   const disabled = busy || !ready || loadFailed;
-  function openAdd() { setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
+  function openAdd() { setIrrigation({ ...defaultIrrigation }); setLastWateredInput(''); setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
   function openEdit(plant: Plant) {
+    plant = garden.plants.find(p => p.id === plant.id) || plant;
+    setIrrigation(plant.irrigation || { ...defaultIrrigation, automatic: false }); setLastWateredInput('');
     setSuggestions([]); setEditingId(plant.id);
     setForm({ name: plant.name, species: plant.species, room: plant.room, photo: plant.photo || '',
       interval: String(plant.interval), height: String(plant.height), pot: String(plant.pot),
@@ -157,6 +195,22 @@ export default function App() {
   }
   async function watered(p: Plant) {
     if (await save({ ...garden, plants: garden.plants.map(item => item.id === p.id ? waterPlant(item) : item) })) setNotice(`Arrosage de ${p.name} enregistré.`);
+  }
+
+  async function observeMoisture(plant: Plant, moisture: 'dry' | 'moist') {
+    const checkedAt = new Date().toISOString();
+    if (await save({ ...garden, plants: garden.plants.map(p => p.id === plant.id ? { ...p, irrigation: { ...(p.irrigation || { ...defaultIrrigation, automatic: false }), moisture, checkedAt } } : p) })) {
+      setNotice(moisture === 'moist' ? 'Terreau humide : vérification reportée à demain, sans ajouter d’arrosage.' : 'Terreau sec noté. Consultez la dose et vérifiez le drainage.');
+    }
+  }
+  const formTemperature = irrigation.location === 'outdoor' ? outdoorTemperature(weather, garden.city) ?? Number(form.temperature) : Number(form.temperature);
+  const preview = wateringPlan({ species: form.species, pot: Number(form.pot), temperature: formTemperature,
+    interval: Number(form.interval), waterAmount: Number(form.waterAmount), irrigation,
+    lastWatered: editingId ? garden.plants.find(p => p.id === editingId)?.lastWatered ?? null : lastWateredInput && /^\d{4}-\d{2}-\d{2}$/.test(lastWateredInput) ? `${lastWateredInput}T00:00:00` : null,
+    createdAt: garden.plants.find(p => p.id === editingId)?.createdAt ?? new Date().toISOString() });
+  function careSummary(plant: Plant) {
+    const plan = wateringPlan(plant);
+    return <View style={styles.task}><Text style={styles.sectionTitle}>Conseil d’arrosage</Text><Text style={styles.body}>Vérifier tous les {plan.interval} jours · prochaine vérification : {dateLabel(plan.nextCheck)}{plan.amount > 0 ? ` · dose indicative : ${plan.amount} ml` : ''}</Text><Text style={styles.body}>{plan.instruction}</Text>{plan.reasons.map(reason => <Text key={reason} style={styles.footnote}>{reason}</Text>)}{plant.irrigation?.checkedAt && <Text style={styles.footnote}>Terreau déclaré {plant.irrigation.moisture === 'moist' ? 'humide' : 'sec'} le {dateLabel(new Date(plant.irrigation.checkedAt))}.</Text>}<Button title="Terreau encore humide · vérifier demain" secondary disabled={disabled} onPress={() => void observeMoisture(plant, 'moist')} /><Button title="Terreau sec" secondary disabled={disabled} onPress={() => void observeMoisture(plant, 'dry')} /></View>;
   }
 
   return <SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content" backgroundColor="#F7F8F2" /><View style={styles.shell}>
@@ -180,15 +234,16 @@ export default function App() {
       {tab === 'tasks' && <>
         <Text style={styles.eyebrow}>LES PETITES ATTENTIONS</Text><Text style={styles.title}>À faire aujourd’hui</Text><Text style={styles.body}>Sans confirmation, un arrosage reste à faire.</Text>
         {!due.length && <View style={styles.empty}><Text style={styles.emptyIcon}>☀️</Text><Text style={styles.sectionTitle}>Rien à signaler.</Text><Text style={styles.body}>Vos prochaines échéances apparaîtront ici.</Text></View>}
-        {due.map(p => <View key={p.id} style={styles.task}><Text style={styles.plantName}>💧 {p.name}</Text><Text style={styles.body}>{p.lastWatered ? `Échéance : ${dateLabel(dueDate(p))}` : 'Aucun arrosage enregistré'}. Vérifiez si le terreau a besoin d’eau.{p.waterAmount ? ` Si le terreau est sec, commencez par environ ${p.waterAmount} ml et arrêtez si l’eau s’écoule.` : ''}</Text>{!!p.caretaker && <Text style={styles.status}>Référent : {p.caretaker}</Text>}<Button title="J’ai arrosé" disabled={disabled} onPress={() => void watered(p)} /></View>)}
+        {due.map(p => <View key={p.id} style={styles.task}><Text style={styles.plantName}>💧 {p.name}</Text><Text style={styles.body}>{p.lastWatered ? `Échéance : ${dateLabel(dueDate(p))}` : 'Aucun arrosage enregistré'}. Vérifiez si le terreau a besoin d’eau.</Text>{!!p.caretaker && <Text style={styles.status}>Référent : {p.caretaker}</Text>}{careSummary(p)}<Button title="J’ai arrosé" disabled={disabled || (!!p.lastWatered && daysUntil(new Date(p.lastWatered)) === 0)} onPress={() => void watered(p)} /></View>)}
         <Text style={styles.sectionTitle}>À venir</Text>{sortedPlants.filter(p => daysUntil(dueDate(p)) > 0).map(p => <View style={styles.card} key={p.id}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{dateLabel(dueDate(p))}</Text></View>)}
         <Text style={styles.sectionTitle}>Rempotage à vérifier</Text>{garden.plants.map(p => <View key={p.id} style={styles.card}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{dateLabel(new Date(p.repotDate))}</Text></View>)}
       </>}
       {tab === 'settings' && <>
         <Text style={styles.eyebrow}>À VOTRE RYTHME</Text><Text style={styles.title}>Mon appartement</Text>
         <View style={styles.task}><View style={styles.section}><Text style={styles.sectionTitle}>Rappels à 9 h</Text><Switch accessibilityLabel="Activer les rappels quotidiens" value={garden.reminders} disabled={disabled || Platform.OS === 'web'} trackColor={{ true: '#356148' }} onValueChange={async value => { try { if (value && !(await requestReminders())) { setNotice('Autorisez les notifications dans les paramètres Android.'); return; } await save({ ...garden, reminders: value }); } catch { setNotice('Impossible d’activer les notifications sur cet appareil.'); } }} /></View><Text style={styles.body}>{Platform.OS === 'web' ? 'Les notifications locales sont disponibles dans l’application Android.' : 'Un rappel quotidien dès l’échéance, jusqu’à confirmation de l’arrosage. Programmation sur 30 jours, renouvelée à chaque ouverture.'}</Text></View>
+        <View style={styles.task}><Text style={styles.sectionTitle}>Météo extérieure</Text><Field label="Rechercher une ville" value={cityQuery} onChange={setCityQuery} placeholder="Paris" /><Button title={searchingCity ? 'Recherche…' : 'Rechercher'} secondary disabled={disabled || searchingCity} onPress={() => void findCities()} />{cities.map(city => <Button key={city.id} secondary title={`${city.name}, ${city.admin1 || ''}, ${city.country || ''}`} disabled={disabled} onPress={async () => { if (await save({ ...garden, city })) { setCities([]); setWeatherStatus('Chargement de la météo…'); } }} />)}{garden.city && <Text style={styles.body}>{garden.city.name} : {outdoorTemperature(weather, garden.city) != null ? `${weather!.temperature} °C · relevé à ${new Date(weather!.fetchedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'température saisie utilisée en attendant la météo'}</Text>}{!!weatherStatus && <Text style={styles.body}>{weatherStatus}</Text>}{garden.city && <Button title="Désactiver la météo" secondary disabled={disabled} onPress={() => void save({ ...garden, city: undefined })} />}<Text style={styles.footnote}>Source : Open-Meteo (open-meteo.com). Actualisation à l’ouverture et chaque heure. Uniquement pour les plantes en extérieur ; en cas d’échec, température saisie. La pluie n’est pas déduite de l’arrosage.</Text></View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Données et photos</Text><Text style={styles.body}>Le carnet reste sur cet appareil. Lors d’une identification, la photo est envoyée à votre serveur local puis à plant.id. Consultez les conditions et la politique de confidentialité de Kindwise avant un usage public.</Text></View>
-        <View style={styles.task}><Text style={styles.sectionTitle}>Première pousse · v1.1</Text><Text style={styles.body}>La reconnaissance remplit l’espèce, un nom courant, un terreau et une fréquence de départ. La quantité est une estimation liée au diamètre du pot. Validez toujours l’humidité réelle du terreau.</Text><Text style={styles.body}>Le diagnostic de maladies, le scan de pièce, la météo extérieure et la mesure automatique des dimensions restent à développer.</Text></View>
+        <View style={styles.task}><Text style={styles.sectionTitle}>Première pousse · v1.1</Text><Text style={styles.body}>La reconnaissance remplit l’espèce, un nom courant, un terreau et une fréquence de départ. La fréquence et la dose peuvent être estimées selon le pot, le terreau et l’environnement. Validez toujours l’humidité réelle du terreau.</Text><Text style={styles.body}>Le diagnostic de maladies, le scan de pièce et la mesure automatique des dimensions restent à développer.</Text></View>
       </>}
       </>}
     </ScrollView>
@@ -197,17 +252,29 @@ export default function App() {
       {!!form.photo && <Image source={{ uri: form.photo }} style={styles.largePhoto} />}
       <View style={styles.row}><Button title={scanning ? 'Analyse…' : '📷 Scanner'} secondary onPress={() => void choosePhoto(true)} disabled={scanning} /><Button title="Galerie" secondary onPress={() => void choosePhoto(false)} disabled={scanning} /></View>
       {!!suggestions.length && <View style={styles.task}><Text style={styles.sectionTitle}>Quelle plante reconnaissez-vous ?</Text><Text style={styles.body}>Les scores sont ceux de plant.id. Choisissez la proposition qui correspond à votre photo.</Text>{suggestions.map((item, index) => <Button key={`${item.scientificName}-${index}`} secondary={form.species !== item.scientificName || form.identificationSource !== 'plant.id'} title={`${item.commonName} (${item.scientificName}) · ${Math.round(item.confidence * 100)} %`} onPress={() => applyIdentification(item)} disabled={scanning || busy} />)}<Button title="Aucune : saisir l’espèce manuellement" secondary onPress={manualIdentification} disabled={scanning || busy} /></View>}
-      {!!form.species && <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien · {form.species}</Text>{!!form.family && <Text style={styles.body}>Famille : {form.family}</Text>}{!!form.description && <Text style={styles.body}>{form.description}{'\n'}Source : plant.id</Text>}<Text style={styles.body}>Terreau : {form.soil}{'\n'}Vérification tous les {form.interval} jours · environ {form.waterAmount} ml si le terreau est sec.</Text><Text style={styles.footnote}>Fréquence, terreau et dose : repères indicatifs Folia, modifiables ci-dessous. Vérifiez le terreau avant d’arroser.</Text></View>}
+      {!!form.species && <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien · {form.species}</Text>{!!form.family && <Text style={styles.body}>Famille : {form.family}</Text>}{!!form.description && <Text style={styles.body}>{form.description}{'\n'}Source : plant.id</Text>}<Text style={styles.body}>Terreau : {form.soil}{'\n'}Vérification tous les {preview.interval} jours{preview.amount > 0 ? ` · environ ${preview.amount} ml si le terreau est sec` : ''}.</Text><Text style={styles.footnote}>Fréquence, terreau et dose : repères indicatifs Folia, modifiables ci-dessous. Vérifiez le terreau avant d’arroser.</Text></View>}
       {!!scanStatus && <Text accessibilityLiveRegion="polite" style={styles.scanStatus}>{scanStatus}</Text>}
-      {([{ key: 'name', label: 'Petit nom *', placeholder: 'Monstera du salon' }, { key: 'species', label: 'Espèce', placeholder: 'Monstera deliciosa' }, { key: 'room', label: 'Pièce' }, { key: 'interval', label: 'Vérifier l’arrosage tous les… jours *', numeric: true }, { key: 'waterAmount', label: 'Quantité indicative si le terreau est sec (ml)', numeric: true }, { key: 'height', label: 'Hauteur de la plante (cm)', numeric: true }, { key: 'pot', label: 'Diamètre du pot (cm)', numeric: true }, { key: 'temperature', label: 'Température de la pièce (°C)', numeric: true }, { key: 'soil', label: 'Type de terreau' }, { key: 'repotDate', label: 'Vérifier le rempotage le (AAAA-MM-JJ)', placeholder: 'Par défaut : dans un an' }, { key: 'caretaker', label: 'Personne référente pendant une absence', placeholder: 'Prénom — note personnelle' }] as { key: keyof Form; label: string; placeholder?: string; numeric?: boolean }[]).map(f => <Field key={f.key} label={f.label} placeholder={f.placeholder} numeric={f.numeric} value={form[f.key]} onChange={value => updateForm(f.key, value)} />)}
+      {([{ key: 'name', label: 'Petit nom *', placeholder: 'Monstera du salon' }, { key: 'species', label: 'Espèce', placeholder: 'Monstera deliciosa' }, { key: 'room', label: 'Pièce' }, { key: 'interval', label: 'Fréquence manuelle (jours, utilisée si calcul désactivé)', numeric: true }, { key: 'waterAmount', label: 'Dose manuelle (ml, utilisée si calcul désactivé)', numeric: true }, { key: 'height', label: 'Hauteur de la plante (cm)', numeric: true }, { key: 'pot', label: 'Diamètre du pot (cm)', numeric: true }, { key: 'temperature', label: 'Température de la pièce ou de repli météo (°C)', numeric: true }, { key: 'soil', label: 'Terreau conseillé / notes (rétention réelle choisie ci-dessus)' }, { key: 'repotDate', label: 'Vérifier le rempotage le (AAAA-MM-JJ)', placeholder: 'Par défaut : dans un an' }, { key: 'caretaker', label: 'Personne référente pendant une absence', placeholder: 'Prénom — note personnelle' }] as { key: keyof Form; label: string; placeholder?: string; numeric?: boolean }[]).filter(f => !irrigation.automatic || !['interval', 'waterAmount'].includes(f.key)).map(f => <Field key={f.key} label={f.label} placeholder={f.placeholder} numeric={f.numeric} value={form[f.key]} onChange={value => updateForm(f.key, value)} />)}
+      <View style={styles.task}><Text style={styles.sectionTitle}>Adapter l’arrosage</Text><View style={styles.section}><Text style={styles.body}>Calcul automatique</Text><Switch accessibilityLabel="Calcul automatique de l’arrosage" value={irrigation.automatic} onValueChange={automatic => setIrrigation(c => ({ ...c, automatic }))} /></View><Field label="Profondeur utile du pot (cm)" numeric value={Number.isNaN(irrigation.depth) ? '' : String(irrigation.depth)} onChange={value => setIrrigation(c => ({ ...c, depth: value ? Number(value) : NaN }))} />
+      {([
+        ['material', 'Matériau du pot', [['plastic', 'Plastique / émaillé'], ['terracotta', 'Terre cuite']]],
+        ['drainage', 'Trous de drainage', [['yes', 'Oui'], ['no', 'Non'], ['unknown', 'À vérifier']]],
+        ['substrate', 'Rétention du terreau réel', [['standard', 'Standard'], ['draining', 'Très drainant'], ['retentive', 'Rétenteur'], ['bark', 'Écorces']]],
+        ['location', 'Emplacement', [['indoor', 'Intérieur'], ['outdoor', 'Extérieur']]],
+        ['exposure', 'Exposition', [['shade', 'Ombre'], ['indirect', 'Lumière indirecte'], ['sun', 'Soleil']]],
+        ['season', 'Cycle actuel de la plante', [['growing', 'Croissance'], ['rest', 'Repos végétatif']]],
+      ] as const).map(([key, label, options]) => <View key={key} style={styles.field}><Text style={styles.label}>{label}</Text><View style={[styles.row, { flexWrap: 'wrap' }]}>{options.map(([value, title]) => <Button key={value} title={`${irrigation[key] === value ? '✓ ' : ''}${title}`} secondary={irrigation[key] !== value} onPress={() => setIrrigation(c => ({ ...c, [key]: value }))} />)}</View></View>)}
+      {!editingId && <Field label="Dernier arrosage connu (AAAA-MM-JJ, facultatif)" value={lastWateredInput} onChange={setLastWateredInput} />}
+      <Text style={styles.body}>{preview.instruction}</Text><Text style={styles.body}>Prochaine vérification : {Number.isFinite(+preview.nextCheck) ? dateLabel(preview.nextCheck) : 'date à corriger'}</Text>{preview.reasons.map(reason => <Text key={reason} style={styles.footnote}>{reason}</Text>)}<Text style={styles.footnote}>Le cycle est choisi selon la plante, sans supposer l’hémisphère. Sans capteur, l’humidité doit être vérifiée sur la fiche. Les dimensions décrivent le pot intérieur, pas le cache-pot.</Text></View>
       {!!form.wateringAdvice && <View style={styles.task}><Text style={styles.sectionTitle}>Conseil fourni par plant.id</Text><Text style={styles.body}>{form.wateringAdvice}</Text></View>}
-      <Text style={styles.footnote}>La reconnaissance est une proposition, pas une certitude. La quantité est calculée à partir du diamètre saisi et doit être ajustée au drainage, à la saison et à l’humidité du terreau. Les dimensions ne peuvent pas être déduites d’une photo sans repère d’échelle.</Text>
+      <Text style={styles.footnote}>La reconnaissance est une proposition, pas une certitude. Le calcul automatique utilise le pot et son substrat, l’espèce et l’environnement. Les coefficients sont indicatifs : l’humidité réelle prime sur l’échéance. Les dimensions ne peuvent pas être déduites d’une photo sans repère d’échelle.</Text>
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}<Button title={editingId ? "Enregistrer les modifications" : "Ajouter à mon appartement"} onPress={() => void addPlant()} disabled={disabled || scanning} /><Button title="Annuler" secondary disabled={scanning || busy} onPress={() => setModal(false)} />
     </ScrollView></KeyboardAvoidingView></SafeAreaView></Modal>
     <Modal visible={!!current} animationType="slide" onRequestClose={() => setSelected(null)}><SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={[styles.content, { maxWidth: 720, width: '100%', alignSelf: 'center' }]}>{current && <>
       <Button title="← Mes plantes" secondary onPress={() => setSelected(null)} />{!!current.photo && <Image source={{ uri: current.photo }} style={styles.largePhoto} />}<Text style={styles.title}>{current.name}</Text><Text style={styles.body}>{current.species} · {current.room}</Text>
       {!!current.description && <View style={styles.task}><Text style={styles.sectionTitle}>À propos de cette espèce</Text><Text style={styles.body}>{current.description}</Text>{!!current.family && <Text style={styles.body}>Famille : {current.family}</Text>}<Text style={styles.footnote}>Description fournie par plant.id.</Text></View>}
-      <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien</Text><Text style={styles.body}>{current.height} cm de haut · pot de {current.pot} cm{ '\n' }{current.soil} · {current.temperature} °C{ '\n' }Vérification tous les {current.interval} jours{current.waterAmount ? ` · environ ${current.waterAmount} ml si le terreau est sec` : ''}{ '\n' }Rempotage à vérifier : {dateLabel(new Date(current.repotDate))}</Text>{!!current.wateringAdvice && <Text style={styles.body}>Conseil plant.id : {current.wateringAdvice}</Text>}{current.identificationSource === 'plant.id' && current.identificationConfidence != null && <Text style={styles.status}>Identification plant.id · confiance {Math.round(current.identificationConfidence * 100)} %</Text>}{!!current.caretaker && <Text style={styles.body}>Référent (note) : {current.caretaker}</Text>}</View>
+      <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien</Text><Text style={styles.body}>{current.height} cm de haut · pot de {current.pot} cm{ '\n' }{current.soil} · {current.temperature} °C{ '\n' }Vérification tous les {wateringPlan(current).interval} jours{ '\n' }Rempotage à vérifier : {dateLabel(new Date(current.repotDate))}</Text>{!!current.wateringAdvice && <Text style={styles.body}>Conseil plant.id : {current.wateringAdvice}</Text>}{current.identificationSource === 'plant.id' && current.identificationConfidence != null && <Text style={styles.status}>Identification plant.id · confiance {Math.round(current.identificationConfidence * 100)} %</Text>}{!!current.caretaker && <Text style={styles.body}>Référent (note) : {current.caretaker}</Text>}</View>
+      {careSummary(current)}
       <Button title="Modifier la fiche" secondary onPress={() => openEdit(current)} disabled={disabled} />
       <Text style={styles.body}>Prochaine vérification : {dateLabel(dueDate(current))}{daysUntil(dueDate(current)) <= 0 ? " · à faire" : ""}</Text>
       <Button title="💧 J’ai arrosé" onPress={() => void watered(current)} disabled={disabled || (!!current.lastWatered && daysUntil(new Date(current.lastWatered)) === 0)} /><Text style={styles.footnote}>{current.lastWatered ? `Dernier arrosage : ${dateLabel(new Date(current.lastWatered))}` : 'Aucun arrosage enregistré. Vérifiez le terreau avant d’arroser.'}</Text>

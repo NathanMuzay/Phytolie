@@ -1,20 +1,23 @@
+import { wateringPlan, type Irrigation } from './irrigation.ts';
+import type { City } from './weather.ts';
 export type Plant = {
   id: string; name: string; species: string; room: string; photo?: string;
   height: number; pot: number; soil: string; temperature: number;
   interval: number; lastWatered: string | null; createdAt: string;
   repotDate: string; caretaker: string; history: string[];
   waterAmount?: number; wateringAdvice?: string;
+  irrigation?: Irrigation;
   family?: string; description?: string;
   identificationConfidence?: number; identificationSource?: string;
 };
-export type Garden = { plants: Plant[]; reminders: boolean };
+export type Garden = { plants: Plant[]; reminders: boolean; city?: City };
 export const STORAGE_KEY = 'folia.garden.v1';
 export const DAY = 86400000;
 export function addDays(date: Date, days: number): Date {
   const result = new Date(date); result.setDate(result.getDate() + days); return result;
 }
 export function dueDate(plant: Plant): Date {
-  return plant.lastWatered ? addDays(new Date(plant.lastWatered), plant.interval) : new Date(plant.createdAt);
+  return wateringPlan(plant).nextCheck;
 }
 export function daysUntil(date: Date, now = new Date()): number {
   const a = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
@@ -22,7 +25,7 @@ export function daysUntil(date: Date, now = new Date()): number {
   return Math.round((a - b) / DAY);
 }
 export function waterPlant(plant: Plant, now = new Date()): Plant {
-  return { ...plant, lastWatered: now.toISOString(), history: [now.toISOString(), ...plant.history].slice(0, 100) };
+  return { ...plant, irrigation: plant.irrigation ? { ...plant.irrigation, moisture: undefined, checkedAt: undefined } : undefined, lastWatered: now.toISOString(), history: [now.toISOString(), ...plant.history].slice(0, 100) };
 }
 export function parseGarden(raw: string): Garden {
   const value = JSON.parse(raw);
@@ -30,6 +33,11 @@ export function parseGarden(raw: string): Garden {
   for (const p of value.plants) {
     if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || typeof p.species !== 'string' || typeof p.room !== 'string' || typeof p.soil !== 'string' || typeof p.caretaker !== 'string' || !Number.isFinite(p.interval) || p.interval < 1 || p.interval > 90 || !Number.isFinite(p.height) || !Number.isFinite(p.pot) || !Number.isFinite(p.temperature) || !Number.isFinite(Date.parse(p.createdAt)) || !Number.isFinite(Date.parse(p.repotDate)) || (p.lastWatered !== null && !Number.isFinite(Date.parse(p.lastWatered))) || !Array.isArray(p.history) || p.history.some((d: unknown) => typeof d !== 'string' || !Number.isFinite(Date.parse(d)))) throw new Error('Fiche invalide');
     if ((p.waterAmount != null && (!Number.isFinite(p.waterAmount) || p.waterAmount < 0 || p.waterAmount > 5000)) || (p.identificationConfidence != null && (!Number.isFinite(p.identificationConfidence) || p.identificationConfidence < 0 || p.identificationConfidence > 1))) throw new Error('Données d’identification invalides');
+  }
+  if (value.city && (!Number.isFinite(value.city.id) || typeof value.city.name !== 'string' || !Number.isFinite(value.city.latitude) || !Number.isFinite(value.city.longitude))) throw new Error('Ville invalide');
+  for (const p of value.plants) {
+    const c = p.irrigation;
+    if (c && (typeof c.automatic !== 'boolean' || !Number.isFinite(c.depth) || c.depth <= 0 || c.depth > 100 || !['plastic', 'terracotta'].includes(c.material) || !['yes', 'no', 'unknown'].includes(c.drainage) || !['standard', 'draining', 'retentive', 'bark'].includes(c.substrate) || !['indoor', 'outdoor'].includes(c.location) || !['shade', 'indirect', 'sun'].includes(c.exposure) || !['growing', 'rest'].includes(c.season) || (c.moisture != null && !['dry', 'moist'].includes(c.moisture)) || (c.checkedAt != null && !Number.isFinite(Date.parse(c.checkedAt))))) throw new Error('Paramètres d’arrosage invalides');
   }
   return value;
 }

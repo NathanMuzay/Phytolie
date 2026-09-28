@@ -91,7 +91,10 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 - Fiche d’entretien du résultat choisi : espèce, famille et description lorsqu’elles sont disponibles, terreau, fréquence et dose indicatives. Les informations de plant.id sont distinguées des estimations Folia.
 - Le choix d’une autre espèce conserve le surnom et la photo. La famille et la description sont sauvegardées avec la plante.
 - Préremplissage du nom courant, du nom scientifique, d’un terreau et d’une fréquence de départ.
-- Quantité d’eau indicative calculée depuis le diamètre du pot et ajustable avant enregistrement.
+- Calcul automatique de la fréquence de vérification et de la dose indicative selon l’espèce, le diamètre et la profondeur du pot, son matériau, le drainage, la rétention du substrat, la température, l’exposition et le cycle croissance/repos. Les anciennes fiches conservent leurs réglages manuels ; activez le calcul dans « Modifier la fiche ».
+- Dernier arrosage connu saisissable à l’ajout, puis historique des confirmations. Les échéances partent du dernier arrosage, jamais de la date d’ouverture.
+- Observation « terreau encore humide » : dose suspendue pendant 24 h et vérification reportée au moins au lendemain, sans créer d’arrosage. « Terreau sec » avance la vérification.
+- Météo extérieure par ville dans « Mon espace » : choix parmi les homonymes, actualisation horaire et au retour dans l’application. La température météo concerne uniquement les plantes en extérieur. En cas d’échec, la température saisie est utilisée.
 - Modification des fiches depuis « Modifier la fiche », avec conservation de l’historique des arrosages.
 - Tri de la collection par urgence (activé par défaut, désactivable) et échéances visibles dans les fiches.
 - Carnet de plantes avec photo depuis la caméra ou la galerie et saisie manuelle toujours possible.
@@ -107,9 +110,13 @@ Pour tester : ajoutez une plante, consultez « À faire », confirmez son arrosa
 
 La reconnaissance est probabiliste : l’utilisateur doit contrôler la proposition et peut corriger tous les champs. plant.id annonce plus de 35 000 taxons, mais ne garantit pas toutes les plantes et ses données d’arrosage ne sont disponibles que pour une partie des espèces. La photo est envoyée au serveur local, puis à Kindwise ; consultez leurs conditions et leur politique de confidentialité avant une mise en production.
 
-Quand plant.id ne fournit pas de donnée exploitable, Folia propose une fréquence et un terreau selon quelques familles courantes. La quantité en millilitres est une estimation basée sur le diamètre du pot, pas une mesure issue de la photo. Elle ne tient pas encore compte du volume réel du pot, de l’humidité, du drainage, de la saison ni de la météo. Un rappel invite donc toujours à vérifier le terreau avant d’arroser.
+Quand plant.id ne fournit pas de donnée exploitable, Folia propose une fréquence et un terreau selon quelques familles courantes. Le moteur utilise un volume utile estimé (75 % du cylindre décrit par le diamètre et la profondeur du pot). Les coefficients Folia sont des heuristiques de départ, pas des mesures ni des prescriptions botaniques validées. Les pots irréguliers, la masse racinaire, l’humidité ambiante et la pluie ne sont pas modélisés. Le type de terreau conseillé est une note ; choisissez séparément la rétention du substrat réellement utilisé. La saison est représentée par le cycle croissance/repos choisi par l’utilisateur, sans supposer son hémisphère.
 
-Le scan de pièce, la compatibilité avant achat, l’estimation visuelle des dimensions, la météo extérieure, la marge de retard et le diagnostic de maladies restent à développer. Une photo sans objet de taille connue ne permet pas de mesurer correctement une plante.
+Sans capteur, l’application ne connaît pas l’humidité réelle : une observation est valable 24 h pour le conseil immédiat. Aucun volume automatique n’est proposé tant que les trous de drainage ne sont pas confirmés, ni à 5 °C ou moins en extérieur. Une date échue ne prouve pas qu’il faut arroser ; ne multipliez pas la dose par le nombre de jours de retard. Vérifiez le terreau et videz la soucoupe.
+
+La météo provient d’[Open-Meteo](https://open-meteo.com/) et la recherche de villes de son [API de géocodage](https://open-meteo.com/en/docs/geocoding-api). La ville choisie est sauvegardée ; la température est rechargée à l’ouverture, au retour au premier plan et chaque heure. Une mesure de plus de 3 h n’est plus utilisée. Sans connexion, la température saisie reste la référence. Les rappels sont recalculés lors de l’actualisation ; l’application fermée conserve la dernière programmation. Les principes de vérification du substrat sont cohérents avec les [conseils d’arrosage de la RHS](https://www.rhs.org.uk/garden-jobs/watering) ; cette source ne valide pas les coefficients numériques de Folia.
+
+Le scan de pièce, la compatibilité avant achat, l’estimation visuelle des dimensions, la marge de retard et le diagnostic de maladies restent à développer. Une photo sans objet de taille connue ne permet pas de mesurer correctement une plante.
 
 Les notifications sont regroupées par jour et programmées pour les **30 prochains jours**, puis renouvelées à chaque ouverture et modification du carnet. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. La personne référente est une simple note ; aucune invitation ni délégation distante n’est envoyée.
 
@@ -123,6 +130,8 @@ src/model.ts            Modèle de données, échéances et historique
 src/notifications.ts    Autorisation et programmation des rappels
 src/plantApi.ts         Appel du serveur d’identification depuis le téléphone
 src/care.ts             Valeurs d’entretien et estimation d’eau
+src/irrigation.ts       Calcul contextualisé et observations d’humidité
+src/weather.ts          Géocodage et température extérieure Open-Meteo
 server.mjs              Proxy local sécurisé vers plant.id
 tests/model.test.mjs     Tests des règles de suivi
 .env.example            Exemple de configuration sans secret
