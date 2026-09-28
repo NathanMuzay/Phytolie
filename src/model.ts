@@ -3,6 +3,8 @@ export type Plant = {
   height: number; pot: number; soil: string; temperature: number;
   interval: number; lastWatered: string | null; createdAt: string;
   repotDate: string; caretaker: string; history: string[];
+  waterAmount?: number; wateringAdvice?: string;
+  identificationConfidence?: number; identificationSource?: string;
 };
 export type Garden = { plants: Plant[]; reminders: boolean };
 export const STORAGE_KEY = 'folia.garden.v1';
@@ -26,6 +28,7 @@ export function parseGarden(raw: string): Garden {
   if (!value || !Array.isArray(value.plants) || typeof value.reminders !== 'boolean') throw new Error('Sauvegarde invalide');
   for (const p of value.plants) {
     if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || typeof p.species !== 'string' || typeof p.room !== 'string' || typeof p.soil !== 'string' || typeof p.caretaker !== 'string' || !Number.isFinite(p.interval) || p.interval < 1 || p.interval > 90 || !Number.isFinite(p.height) || !Number.isFinite(p.pot) || !Number.isFinite(p.temperature) || !Number.isFinite(Date.parse(p.createdAt)) || !Number.isFinite(Date.parse(p.repotDate)) || (p.lastWatered !== null && !Number.isFinite(Date.parse(p.lastWatered))) || !Array.isArray(p.history) || p.history.some((d: unknown) => typeof d !== 'string' || !Number.isFinite(Date.parse(d)))) throw new Error('Fiche invalide');
+    if ((p.waterAmount != null && (!Number.isFinite(p.waterAmount) || p.waterAmount < 0 || p.waterAmount > 5000)) || (p.identificationConfidence != null && (!Number.isFinite(p.identificationConfidence) || p.identificationConfidence < 0 || p.identificationConfidence > 1))) throw new Error('Données d’identification invalides');
   }
   return value;
 }

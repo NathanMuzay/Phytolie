@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { dueDate, daysUntil, waterPlant, reminderDates, parseGarden } from '../src/model.ts';
+import { careDefaults, estimateWaterAmount } from '../src/care.ts';
 
 const plant = { id: '1', name: 'Fern', species: 'Unknown', room: 'Salon', height: 30, pot: 14, soil: 'Terreau', temperature: 20, interval: 7, lastWatered: null, createdAt: '2026-09-01T12:00:00Z', repotDate: '2027-09-01T12:00:00Z', caretaker: '', history: [] };
 test('A missing confirmation never moves the watering deadline', () => {
@@ -36,4 +37,17 @@ test('Stored garden round-trips, invalid records are rejected', () => {
   assert.throws(() => parseGarden('{'));
   assert.throws(() => parseGarden(JSON.stringify({ ...garden, plants: [{ ...plant, interval: 0 }] })));
   assert.throws(() => parseGarden(JSON.stringify({ ...garden, plants: [{ ...plant, history: ['oops'] }] })));
+});
+test('Care defaults distinguish dry and moisture-loving plants', () => {
+  assert.equal(careDefaults('Echeveria elegans').interval, 14);
+  assert.equal(careDefaults('Fougère de Boston').interval, 4);
+  assert.equal(careDefaults('Monstera deliciosa').interval, 7);
+});
+test('Water estimate grows with the pot and is lower for succulents', () => {
+  const small = estimateWaterAmount(12, 'Monstera deliciosa');
+  const large = estimateWaterAmount(20, 'Monstera deliciosa');
+  const succulent = estimateWaterAmount(20, 'Echeveria elegans');
+  assert.ok(small > 0 && large > small);
+  assert.ok(succulent < large);
+  assert.equal(estimateWaterAmount(0), 0);
 });
