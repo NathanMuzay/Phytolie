@@ -86,7 +86,10 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 
 ## Ce qui fonctionne
 
-- Reconnaissance par photo avec plant.id et affichage du niveau de confiance.
+- Reconnaissance par photo avec plant.id et jusqu’à cinq propositions classées par confiance.
+- À partir de 80 % de confiance, la première proposition préremplit la fiche ; sinon, choix explicite ou saisie manuelle. Toutes les propositions restent sélectionnables.
+- Fiche d’entretien du résultat choisi : espèce, famille et description lorsqu’elles sont disponibles, terreau, fréquence et dose indicatives. Les informations de plant.id sont distinguées des estimations Folia.
+- Le choix d’une autre espèce conserve le surnom et la photo. La famille et la description sont sauvegardées avec la plante.
 - Préremplissage du nom courant, du nom scientifique, d’un terreau et d’une fréquence de départ.
 - Quantité d’eau indicative calculée depuis le diamètre du pot et ajustable avant enregistrement.
 - Modification des fiches depuis « Modifier la fiche », avec conservation de l’historique des arrosages.

@@ -4,6 +4,7 @@ export type PlantIdentification = {
   family: string;
   confidence: number;
   wateringAdvice: string;
+  description?: string;
 };
 
 type ApiError = { error?: string };
@@ -28,16 +29,21 @@ async function requestJson(url: string, options: RequestInit, timeoutMs: number,
   } finally { clearTimeout(timer); }
 }
 
-export async function identifyPlant(base64: string): Promise<PlantIdentification> {
+export async function identifyPlant(base64: string): Promise<PlantIdentification[]> {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
   if (!apiUrl) throw new Error('API_NOT_CONFIGURED');
 
   // Check connectivity before uploading the photo or using identification credits.
   await requestJson(`${apiUrl}/health`, { method: 'GET' }, 5000,
     'Serveur Folia injoignable après 5 secondes. Lancez npm run api, vérifiez EXPO_PUBLIC_API_URL puis redémarrez Expo.');
-  return await requestJson(`${apiUrl}/identify`, {
+  const result = await requestJson(`${apiUrl}/identify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64.replace(/^data:image\/[^;]+;base64,/, '') }),
-  }, 55000, 'L’identification dépasse 55 secondes. Vérifiez votre connexion puis réessayez.') as PlantIdentification;
+  }, 55000, 'L’identification dépasse 55 secondes. Vérifiez votre connexion puis réessayez.') as PlantIdentification & { suggestions?: PlantIdentification[] };
+  const suggestions = result.suggestions ?? [result];
+  if (!Array.isArray(suggestions) || !suggestions.length || suggestions.some(s => !s || typeof s.scientificName !== 'string' || typeof s.commonName !== 'string' || !Number.isFinite(s.confidence))) {
+    throw new Error('Résultats d’identification invalides. Réessayez ou saisissez l’espèce manuellement.');
+  }
+  return suggestions;
 }

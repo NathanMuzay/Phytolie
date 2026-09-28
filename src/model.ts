@@ -4,6 +4,7 @@ export type Plant = {
   interval: number; lastWatered: string | null; createdAt: string;
   repotDate: string; caretaker: string; history: string[];
   waterAmount?: number; wateringAdvice?: string;
+  family?: string; description?: string;
   identificationConfidence?: number; identificationSource?: string;
 };
 export type Garden = { plants: Plant[]; reminders: boolean };

@@ -12,7 +12,7 @@ test('Scan checks server availability before uploading and preserves identificat
     calls.push({ url, options });
     return Response.json(url.endsWith('/health') ? { status: 'ok' } : plant);
   });
-  assert.deepEqual(await identifyPlant('data:image/jpeg;base64,YWJj'), plant);
+  assert.deepEqual(await identifyPlant('data:image/jpeg;base64,YWJj'), [plant]);
   assert.deepEqual(calls.map(c => c.url), ['http://localhost:8787/health', 'http://localhost:8787/identify']);
   assert.deepEqual(JSON.parse(calls[1].options.body), { image: 'YWJj' });
 });
@@ -37,4 +37,16 @@ test('Unreachable server is aborted after five seconds', async t => {
   const result = assert.rejects(identifyPlant('YWJj'), /injoignable après 5 secondes/);
   t.mock.timers.tick(5000);
   await result;
+});
+
+test('Client returns all alternatives with their individual care details', async t => {
+  const previous = process.env.EXPO_PUBLIC_API_URL;
+  process.env.EXPO_PUBLIC_API_URL = 'http://localhost:8787';
+  t.after(() => { if (previous === undefined) delete process.env.EXPO_PUBLIC_API_URL; else process.env.EXPO_PUBLIC_API_URL = previous; });
+  const suggestions = [
+    { commonName: 'Aloès', scientificName: 'Aloe vera', confidence: .6, family: 'Asphodelaceae', description: 'First', wateringAdvice: '' },
+    { commonName: 'Agave', scientificName: 'Agave americana', confidence: .3, family: 'Asparagaceae', description: 'Second', wateringAdvice: '' },
+  ];
+  t.mock.method(globalThis, 'fetch', async url => Response.json(url.endsWith('/health') ? { status: 'ok' } : { ...suggestions[0], suggestions }));
+  assert.deepEqual(await identifyPlant('YWJj'), suggestions);
 });

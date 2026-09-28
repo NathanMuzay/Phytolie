@@ -6,11 +6,11 @@ import { File, Paths } from 'expo-file-system';
 import { Garden, Plant, STORAGE_KEY, daysUntil, dueDate, parseGarden, waterPlant, sortPlantsByUrgency } from './src/model';
 import { requestReminders, syncReminders } from './src/notifications';
 import { careDefaults, estimateWaterAmount } from './src/care';
-import { identifyPlant } from './src/plantApi';
+import { identifyPlant, PlantIdentification } from './src/plantApi';
 
 const empty: Garden = { plants: [], reminders: false };
 const dateLabel = (date: Date) => date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-const initialForm = { name: '', species: '', room: 'Salon', interval: '7', height: '30', pot: '14', temperature: '20', soil: 'Terreau universel', caretaker: '', photo: '', repotDate: '', waterAmount: '175', wateringAdvice: '', identificationConfidence: '', identificationSource: '' };
+const initialForm = { name: '', species: '', room: 'Salon', interval: '7', height: '30', pot: '14', temperature: '20', soil: 'Terreau universel', caretaker: '', photo: '', repotDate: '', waterAmount: '175', wateringAdvice: '', identificationConfidence: '', identificationSource: '', family: '', description: '' };
 type Form = typeof initialForm;
 
 function Button({ title, onPress, secondary = false, disabled = false }: { title: string; onPress: () => void; secondary?: boolean; disabled?: boolean }) {
@@ -26,6 +26,7 @@ export default function App() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlantIdentification[]>([]);
   const [scanStatus, setScanStatus] = useState('');
   const lock = useRef(false);
   const [tab, setTab] = useState<'garden' | 'tasks' | 'settings'>('garden');
@@ -81,34 +82,48 @@ export default function App() {
           const blob = await (await fetch(uri)).blob();
           uri = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(blob); });
         }
-        setForm(f => ({ ...f, photo: uri })); setError(''); setScanning(true); setScanStatus('Analyse de la photo par plant.id…');
+        setSuggestions([]);
+        setForm(f => ({ ...f, photo: uri, species: '', identificationSource: '', identificationConfidence: '', wateringAdvice: '', family: '', description: '' })); setError(''); setScanning(true); setScanStatus('Analyse de la photo par plant.id…');
         try {
           const base64 = asset.base64 || (Platform.OS === 'web' ? uri.split(',')[1] : await new File(asset.uri).base64());
-          const identification = await identifyPlant(base64);
-          const profile = careDefaults(`${identification.scientificName} ${identification.commonName}`);
-          setForm(previous => ({
-            ...previous,
-            photo: uri,
-            name: previous.name.trim() || identification.commonName,
-            species: identification.scientificName,
-            interval: String(profile.interval),
-            soil: profile.soil,
-            waterAmount: String(estimateWaterAmount(Number(previous.pot), identification.scientificName)),
-            wateringAdvice: identification.wateringAdvice,
-            identificationConfidence: String(identification.confidence),
-            identificationSource: 'plant.id',
-          }));
-          setScanStatus(`Proposition : ${identification.commonName} · confiance ${Math.round(identification.confidence * 100)} %. Vérifiez et corrigez les champs avant d’ajouter.`);
+          const results = await identifyPlant(base64);
+          setSuggestions(results);
+          if (results[0].confidence >= 0.8) {
+            applyIdentification(results[0]);
+          } else {
+            setScanStatus('Identification incertaine : choisissez une proposition ci-dessous ou saisissez l’espèce manuellement.');
+          }
         } catch (scanError) {
           const message = scanError instanceof Error ? scanError.message : '';
-          setScanStatus(message === 'API_NOT_CONFIGURED' ? 'Photo ajoutée, mais l’API n’est pas configurée. Consultez le README.' : `Identification impossible : ${message || 'réessayez avec une photo plus nette.'}`);
+          setScanStatus(message === 'API_NOT_CONFIGURED' ? 'Photo ajoutée, mais l’API n’est pas configurée. Consultez le README.' : `Identification impossible : ${message || 'réessayez avec une photo plus nette.'} Vous pouvez saisir l’espèce manuellement.`);
         } finally { setScanning(false); }
       }
     } catch { setError('Impossible d’ouvrir cette photo. Réessayez avec une autre image.'); }
   }
+  function applyIdentification(identification: PlantIdentification) {
+    const profile = careDefaults(`${identification.scientificName} ${identification.commonName}`);
+    setForm(previous => ({ ...previous,
+      name: previous.name.trim() || identification.commonName,
+      species: identification.scientificName, interval: String(profile.interval), soil: profile.soil,
+      waterAmount: String(estimateWaterAmount(Number(previous.pot), identification.scientificName)),
+      wateringAdvice: identification.wateringAdvice || '', family: identification.family || '', description: identification.description || '',
+      identificationConfidence: String(identification.confidence), identificationSource: 'plant.id',
+    }));
+    setScanStatus(`Espèce sélectionnée : ${identification.scientificName} · confiance ${Math.round(identification.confidence * 100)} %. Vérifiez la fiche d’entretien.`);
+  }
+  function manualIdentification() {
+    setSuggestions([]);
+    setForm(previous => ({ ...previous, species: '', family: '', description: '', wateringAdvice: '', identificationSource: '', identificationConfidence: '' }));
+    setScanStatus('Saisissez l’espèce dans le champ ci-dessous. La photo et le surnom sont conservés.');
+  }
   function updateForm(key: keyof Form, value: string) {
     setForm(previous => {
       const next = { ...previous, [key]: value };
+      if (key === 'species') {
+        next.identificationSource = ''; next.identificationConfidence = ''; next.family = ''; next.description = ''; next.wateringAdvice = '';
+        const profile = careDefaults(value); next.interval = String(profile.interval); next.soil = profile.soil;
+        next.waterAmount = String(estimateWaterAmount(Number(previous.pot), value));
+      }
       if (key === 'pot') next.waterAmount = String(estimateWaterAmount(Number(value), previous.species));
       return next;
     });
@@ -129,15 +144,15 @@ export default function App() {
   const due = sortedPlants.filter(p => daysUntil(dueDate(p)) <= 0);
   const current = garden.plants.find(p => p.id === selected);
   const disabled = busy || !ready || loadFailed;
-  function openAdd() { setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
+  function openAdd() { setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
   function openEdit(plant: Plant) {
-    setEditingId(plant.id);
+    setSuggestions([]); setEditingId(plant.id);
     setForm({ name: plant.name, species: plant.species, room: plant.room, photo: plant.photo || '',
       interval: String(plant.interval), height: String(plant.height), pot: String(plant.pot),
       temperature: String(plant.temperature), soil: plant.soil, caretaker: plant.caretaker,
       repotDate: plant.repotDate.slice(0, 10), waterAmount: String(plant.waterAmount ?? estimateWaterAmount(plant.pot, plant.species)),
       wateringAdvice: plant.wateringAdvice || '', identificationConfidence: plant.identificationConfidence == null ? '' : String(plant.identificationConfidence),
-      identificationSource: plant.identificationSource || '' });
+      identificationSource: plant.identificationSource || '', family: plant.family || '', description: plant.description || '' });
     setError(''); setScanStatus(''); setSelected(null); setModal(true);
   }
   async function watered(p: Plant) {
@@ -181,6 +196,8 @@ export default function App() {
     <Modal visible={modal} animationType="slide" onRequestClose={() => { if (!scanning && !busy) setModal(false); }}><SafeAreaView style={styles.safe}><KeyboardAvoidingView style={styles.shell} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>UNE NOUVELLE RENCONTRE</Text><Text style={styles.title}>{editingId ? 'Modifier la plante' : 'Scanner une plante'}</Text><Text style={styles.body}>Prenez une photo nette de la plante entière ou d’une feuille. plant.id proposera une espèce et préremplira la fiche.</Text>
       {!!form.photo && <Image source={{ uri: form.photo }} style={styles.largePhoto} />}
       <View style={styles.row}><Button title={scanning ? 'Analyse…' : '📷 Scanner'} secondary onPress={() => void choosePhoto(true)} disabled={scanning} /><Button title="Galerie" secondary onPress={() => void choosePhoto(false)} disabled={scanning} /></View>
+      {!!suggestions.length && <View style={styles.task}><Text style={styles.sectionTitle}>Quelle plante reconnaissez-vous ?</Text><Text style={styles.body}>Les scores sont ceux de plant.id. Choisissez la proposition qui correspond à votre photo.</Text>{suggestions.map((item, index) => <Button key={`${item.scientificName}-${index}`} secondary={form.species !== item.scientificName || form.identificationSource !== 'plant.id'} title={`${item.commonName} (${item.scientificName}) · ${Math.round(item.confidence * 100)} %`} onPress={() => applyIdentification(item)} disabled={scanning || busy} />)}<Button title="Aucune : saisir l’espèce manuellement" secondary onPress={manualIdentification} disabled={scanning || busy} /></View>}
+      {!!form.species && <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien · {form.species}</Text>{!!form.family && <Text style={styles.body}>Famille : {form.family}</Text>}{!!form.description && <Text style={styles.body}>{form.description}{'\n'}Source : plant.id</Text>}<Text style={styles.body}>Terreau : {form.soil}{'\n'}Vérification tous les {form.interval} jours · environ {form.waterAmount} ml si le terreau est sec.</Text><Text style={styles.footnote}>Fréquence, terreau et dose : repères indicatifs Folia, modifiables ci-dessous. Vérifiez le terreau avant d’arroser.</Text></View>}
       {!!scanStatus && <Text accessibilityLiveRegion="polite" style={styles.scanStatus}>{scanStatus}</Text>}
       {([{ key: 'name', label: 'Petit nom *', placeholder: 'Monstera du salon' }, { key: 'species', label: 'Espèce', placeholder: 'Monstera deliciosa' }, { key: 'room', label: 'Pièce' }, { key: 'interval', label: 'Vérifier l’arrosage tous les… jours *', numeric: true }, { key: 'waterAmount', label: 'Quantité indicative si le terreau est sec (ml)', numeric: true }, { key: 'height', label: 'Hauteur de la plante (cm)', numeric: true }, { key: 'pot', label: 'Diamètre du pot (cm)', numeric: true }, { key: 'temperature', label: 'Température de la pièce (°C)', numeric: true }, { key: 'soil', label: 'Type de terreau' }, { key: 'repotDate', label: 'Vérifier le rempotage le (AAAA-MM-JJ)', placeholder: 'Par défaut : dans un an' }, { key: 'caretaker', label: 'Personne référente pendant une absence', placeholder: 'Prénom — note personnelle' }] as { key: keyof Form; label: string; placeholder?: string; numeric?: boolean }[]).map(f => <Field key={f.key} label={f.label} placeholder={f.placeholder} numeric={f.numeric} value={form[f.key]} onChange={value => updateForm(f.key, value)} />)}
       {!!form.wateringAdvice && <View style={styles.task}><Text style={styles.sectionTitle}>Conseil fourni par plant.id</Text><Text style={styles.body}>{form.wateringAdvice}</Text></View>}
@@ -189,7 +206,8 @@ export default function App() {
     </ScrollView></KeyboardAvoidingView></SafeAreaView></Modal>
     <Modal visible={!!current} animationType="slide" onRequestClose={() => setSelected(null)}><SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={[styles.content, { maxWidth: 720, width: '100%', alignSelf: 'center' }]}>{current && <>
       <Button title="← Mes plantes" secondary onPress={() => setSelected(null)} />{!!current.photo && <Image source={{ uri: current.photo }} style={styles.largePhoto} />}<Text style={styles.title}>{current.name}</Text><Text style={styles.body}>{current.species} · {current.room}</Text>
-      <View style={styles.task}><Text style={styles.sectionTitle}>Son environnement</Text><Text style={styles.body}>{current.height} cm de haut · pot de {current.pot} cm{ '\n' }{current.soil} · {current.temperature} °C{ '\n' }Vérification tous les {current.interval} jours{current.waterAmount ? ` · environ ${current.waterAmount} ml si le terreau est sec` : ''}{ '\n' }Rempotage à vérifier : {dateLabel(new Date(current.repotDate))}</Text>{!!current.wateringAdvice && <Text style={styles.body}>Conseil plant.id : {current.wateringAdvice}</Text>}{current.identificationSource === 'plant.id' && current.identificationConfidence != null && <Text style={styles.status}>Identification plant.id · confiance {Math.round(current.identificationConfidence * 100)} %</Text>}{!!current.caretaker && <Text style={styles.body}>Référent (note) : {current.caretaker}</Text>}</View>
+      {!!current.description && <View style={styles.task}><Text style={styles.sectionTitle}>À propos de cette espèce</Text><Text style={styles.body}>{current.description}</Text>{!!current.family && <Text style={styles.body}>Famille : {current.family}</Text>}<Text style={styles.footnote}>Description fournie par plant.id.</Text></View>}
+      <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien</Text><Text style={styles.body}>{current.height} cm de haut · pot de {current.pot} cm{ '\n' }{current.soil} · {current.temperature} °C{ '\n' }Vérification tous les {current.interval} jours{current.waterAmount ? ` · environ ${current.waterAmount} ml si le terreau est sec` : ''}{ '\n' }Rempotage à vérifier : {dateLabel(new Date(current.repotDate))}</Text>{!!current.wateringAdvice && <Text style={styles.body}>Conseil plant.id : {current.wateringAdvice}</Text>}{current.identificationSource === 'plant.id' && current.identificationConfidence != null && <Text style={styles.status}>Identification plant.id · confiance {Math.round(current.identificationConfidence * 100)} %</Text>}{!!current.caretaker && <Text style={styles.body}>Référent (note) : {current.caretaker}</Text>}</View>
       <Button title="Modifier la fiche" secondary onPress={() => openEdit(current)} disabled={disabled} />
       <Text style={styles.body}>Prochaine vérification : {dateLabel(dueDate(current))}{daysUntil(dueDate(current)) <= 0 ? " · à faire" : ""}</Text>
       <Button title="💧 J’ai arrosé" onPress={() => void watered(current)} disabled={disabled || (!!current.lastWatered && daysUntil(new Date(current.lastWatered)) === 0)} /><Text style={styles.footnote}>{current.lastWatered ? `Dernier arrosage : ${dateLabel(new Date(current.lastWatered))}` : 'Aucun arrosage enregistré. Vérifiez le terreau avant d’arroser.'}</Text>
