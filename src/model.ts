@@ -10,7 +10,7 @@ export type Plant = {
   family?: string; description?: string;
   identificationConfidence?: number; identificationSource?: string;
 };
-export type Garden = { plants: Plant[]; reminders: boolean; city?: City };
+export type Garden = { plants: Plant[]; reminders: boolean; reminderTime?: string; city?: City };
 export const STORAGE_KEY = 'folia.garden.v1';
 export const DAY = 86400000;
 export function addDays(date: Date, days: number): Date {
@@ -30,6 +30,7 @@ export function waterPlant(plant: Plant, now = new Date()): Plant {
 export function parseGarden(raw: string): Garden {
   const value = JSON.parse(raw);
   if (!value || !Array.isArray(value.plants) || typeof value.reminders !== 'boolean') throw new Error('Sauvegarde invalide');
+  if (value.reminderTime != null && !isReminderTime(value.reminderTime)) throw new Error('Heure de rappel invalide');
   for (const p of value.plants) {
     if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || typeof p.species !== 'string' || typeof p.room !== 'string' || typeof p.soil !== 'string' || typeof p.caretaker !== 'string' || !Number.isFinite(p.interval) || p.interval < 1 || p.interval > 90 || !Number.isFinite(p.height) || !Number.isFinite(p.pot) || !Number.isFinite(p.temperature) || !Number.isFinite(Date.parse(p.createdAt)) || !Number.isFinite(Date.parse(p.repotDate)) || (p.lastWatered !== null && !Number.isFinite(Date.parse(p.lastWatered))) || !Array.isArray(p.history) || p.history.some((d: unknown) => typeof d !== 'string' || !Number.isFinite(Date.parse(d)))) throw new Error('Fiche invalide');
     if ((p.waterAmount != null && (!Number.isFinite(p.waterAmount) || p.waterAmount < 0 || p.waterAmount > 5000)) || (p.identificationConfidence != null && (!Number.isFinite(p.identificationConfidence) || p.identificationConfidence < 0 || p.identificationConfidence > 1))) throw new Error('Données d’identification invalides');
@@ -41,12 +42,21 @@ export function parseGarden(raw: string): Garden {
   }
   return value;
 }
-export function reminderDates(plant: Plant, now = new Date()): Date[] {
-  const first = dueDate(plant);
+export const DEFAULT_REMINDER_TIME = '09:00';
+export function isReminderTime(value: unknown): value is string {
+  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+export function reminderDates(plant: Plant, now = new Date(), time = DEFAULT_REMINDER_TIME): Date[] {
+  if (!isReminderTime(time)) throw new Error('Heure de rappel invalide');
+  const [hour, minute] = time.split(':').map(Number);
+  const first = wateringPlan(plant, now).nextCheck;
   if (first < now) first.setTime(now.getTime());
-  first.setHours(9, 0, 0, 0);
+  first.setHours(hour, minute, 0, 0);
   if (first <= now) first.setDate(first.getDate() + 1);
-  return Array.from({ length: 30 }, (_, index) => addDays(first, index));
+  // Reset the requested clock time each day, including after a DST gap.
+  return Array.from({ length: 30 }, (_, index) => {
+    const date = addDays(first, index); date.setHours(hour, minute, 0, 0); return date;
+  });
 }
 
 export function sortPlantsByUrgency(plants: Plant[]): Plant[] {

@@ -3,8 +3,8 @@ import { AppState, Image, KeyboardAvoidingView, Modal, Platform, Pressable, Safe
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
-import { Garden, Plant, STORAGE_KEY, daysUntil, dueDate, parseGarden, waterPlant, sortPlantsByUrgency } from './src/model';
-import { requestReminders, syncReminders } from './src/notifications';
+import { Garden, Plant, STORAGE_KEY, daysUntil, dueDate, parseGarden, waterPlant, sortPlantsByUrgency, DEFAULT_REMINDER_TIME, isReminderTime } from './src/model';
+import { requestReminders, syncReminders, onReminderOpened } from './src/notifications';
 import { careDefaults, estimateWaterAmount } from './src/care';
 import { wateringPlan, defaultIrrigation, Irrigation } from './src/irrigation';
 import { searchCities, fetchWeather, outdoorTemperature, City, Weather } from './src/weather';
@@ -30,6 +30,9 @@ export default function App() {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherStatus, setWeatherStatus] = useState('');
   const [searchingCity, setSearchingCity] = useState(false);
+  const [reminderTimeInput, setReminderTimeInput] = useState(DEFAULT_REMINDER_TIME);
+  const [reminderStatus, setReminderStatus] = useState('');
+  const [reminderError, setReminderError] = useState('');
   const [garden, setGarden] = useState<Garden>(empty);
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -75,14 +78,24 @@ export default function App() {
     finally { setSearchingCity(false); }
   }
   function schedule(next: Garden) {
-    scheduleQueue.current = scheduleQueue.current.catch(() => {}).then(() => syncReminders(withWeather(next.plants, next.city), next.reminders)).catch(() => {
-      setNotice('Données enregistrées, mais les rappels n’ont pas pu être programmés. Vérifiez les autorisations dans Android.');
+    scheduleQueue.current = scheduleQueue.current.catch(() => {}).then(async () => {
+      const count = await syncReminders(withWeather(next.plants, next.city), next.reminders, next.reminderTime ?? DEFAULT_REMINDER_TIME);
+      setReminderStatus(Platform.OS === 'web' ? 'Heure sauvegardée. Notifications disponibles sur Android.' : !next.reminders ? 'Rappels désactivés.' : count ? `${count} rappels programmés à ${next.reminderTime ?? DEFAULT_REMINDER_TIME}.` : 'Aucune échéance dans les 30 prochains jours.');
+    }).catch(error => {
+      setReminderStatus('Programmation des rappels en échec.');
+      setNotice(`Données enregistrées, mais les rappels n’ont pas pu être programmés. ${error instanceof Error ? error.message : 'Vérifiez les autorisations dans Android.'}`);
     });
+  }
+  useEffect(() => onReminderOpened(() => { setTab('tasks'); setSelected(null); setModal(false); }), []);
+  async function saveReminderTime() {
+    if (!isReminderTime(reminderTimeInput)) { setReminderError('Saisissez une heure valide au format HH:MM, de 00:00 à 23:59.'); return; }
+    setReminderError('');
+    if (await save({ ...garden, reminderTime: reminderTimeInput })) setNotice(`Heure des rappels enregistrée : ${reminderTimeInput}.`);
   }
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(raw => {
       const loaded = raw ? parseGarden(raw) : empty;
-      setGarden(loaded); schedule(loaded);
+      setGarden(loaded); setReminderTimeInput(loaded.reminderTime ?? DEFAULT_REMINDER_TIME); schedule(loaded);
     }).catch(() => { setLoadFailed(true); setNotice('Impossible de lire la sauvegarde. Redémarrez l’application ; les données existantes sont conservées.'); }).finally(() => setReady(true));
   }, []);
   useEffect(() => {
@@ -179,7 +192,7 @@ export default function App() {
   const collection = sortByUrgency ? sortedPlants : withWeather(garden.plants);
   const due = sortedPlants.filter(p => daysUntil(dueDate(p)) <= 0);
   const current = withWeather(garden.plants).find(p => p.id === selected);
-  const disabled = busy || !ready || loadFailed;
+  const disabled = busy || scanning || !ready || loadFailed;
   function openAdd() { setIrrigation({ ...defaultIrrigation }); setLastWateredInput(''); setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
   function openEdit(plant: Plant) {
     plant = garden.plants.find(p => p.id === plant.id) || plant;
@@ -240,7 +253,7 @@ export default function App() {
       </>}
       {tab === 'settings' && <>
         <Text style={styles.eyebrow}>À VOTRE RYTHME</Text><Text style={styles.title}>Mon appartement</Text>
-        <View style={styles.task}><View style={styles.section}><Text style={styles.sectionTitle}>Rappels à 9 h</Text><Switch accessibilityLabel="Activer les rappels quotidiens" value={garden.reminders} disabled={disabled || Platform.OS === 'web'} trackColor={{ true: '#356148' }} onValueChange={async value => { try { if (value && !(await requestReminders())) { setNotice('Autorisez les notifications dans les paramètres Android.'); return; } await save({ ...garden, reminders: value }); } catch { setNotice('Impossible d’activer les notifications sur cet appareil.'); } }} /></View><Text style={styles.body}>{Platform.OS === 'web' ? 'Les notifications locales sont disponibles dans l’application Android.' : 'Un rappel quotidien dès l’échéance, jusqu’à confirmation de l’arrosage. Programmation sur 30 jours, renouvelée à chaque ouverture.'}</Text></View>
+        <View style={styles.task}><View style={styles.section}><Text style={styles.sectionTitle}>Rappels à {garden.reminderTime ?? DEFAULT_REMINDER_TIME}</Text><Switch accessibilityLabel="Activer les rappels quotidiens" value={garden.reminders} disabled={disabled || Platform.OS === 'web'} trackColor={{ true: '#356148' }} onValueChange={async value => { try { if (value && !(await requestReminders())) { setNotice('Autorisez les notifications dans les paramètres Android.'); return; } await save({ ...garden, reminders: value }); } catch { setNotice('Impossible d’activer les notifications sur cet appareil.'); } }} /></View><Field label="Heure des rappels (HH:MM)" value={reminderTimeInput} onChange={value => { setReminderTimeInput(value); setReminderError(''); }} placeholder="09:00" /><Button title="Enregistrer l’heure" secondary disabled={disabled} onPress={() => void saveReminderTime()} />{!!reminderError && <Text accessibilityRole="alert" style={styles.error}>{reminderError}</Text>}{!!reminderStatus && <Text accessibilityLiveRegion="polite" style={styles.body}>{reminderStatus}</Text>}<Text style={styles.body}>{Platform.OS === 'web' ? 'Les notifications locales sont disponibles dans l’application Android.' : 'Un rappel quotidien dès l’échéance, jusqu’à confirmation de l’arrosage. Une notification regroupe les plantes du jour. Un arrosage confirmé recalcule la prochaine échéance ; un terreau humide reporte la vérification. Programmation sur 30 jours, renouvelée à chaque ouverture. Heure locale du téléphone ; après un changement de fuseau, rouvrez l’application.'}</Text></View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Météo extérieure</Text><Field label="Rechercher une ville" value={cityQuery} onChange={setCityQuery} placeholder="Paris" /><Button title={searchingCity ? 'Recherche…' : 'Rechercher'} secondary disabled={disabled || searchingCity} onPress={() => void findCities()} />{cities.map(city => <Button key={city.id} secondary title={`${city.name}, ${city.admin1 || ''}, ${city.country || ''}`} disabled={disabled} onPress={async () => { if (await save({ ...garden, city })) { setCities([]); setWeatherStatus('Chargement de la météo…'); } }} />)}{garden.city && <Text style={styles.body}>{garden.city.name} : {outdoorTemperature(weather, garden.city) != null ? `${weather!.temperature} °C · relevé à ${new Date(weather!.fetchedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'température saisie utilisée en attendant la météo'}</Text>}{!!weatherStatus && <Text style={styles.body}>{weatherStatus}</Text>}{garden.city && <Button title="Désactiver la météo" secondary disabled={disabled} onPress={() => void save({ ...garden, city: undefined })} />}<Text style={styles.footnote}>Source : Open-Meteo (open-meteo.com). Actualisation à l’ouverture et chaque heure. Uniquement pour les plantes en extérieur ; en cas d’échec, température saisie. La pluie n’est pas déduite de l’arrosage.</Text></View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Données et photos</Text><Text style={styles.body}>Le carnet reste sur cet appareil. Lors d’une identification, la photo est envoyée à votre serveur local puis à plant.id. Consultez les conditions et la politique de confidentialité de Kindwise avant un usage public.</Text></View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Première pousse · v1.1</Text><Text style={styles.body}>La reconnaissance remplit l’espèce, un nom courant, un terreau et une fréquence de départ. La fréquence et la dose peuvent être estimées selon le pot, le terreau et l’environnement. Validez toujours l’humidité réelle du terreau.</Text><Text style={styles.body}>Le diagnostic de maladies, le scan de pièce et la mesure automatique des dimensions restent à développer.</Text></View>

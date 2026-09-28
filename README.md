@@ -101,7 +101,8 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 - Fréquence personnalisée de vérification de l’arrosage, entre 1 et 90 jours.
 - Écran « À faire », confirmation « J’ai arrosé » et historique.
 - Sauvegarde locale persistante et suppression avec confirmation.
-- Rappels locaux Android à 9 h dès l’échéance, répétés quotidiennement tant que l’arrosage n’est pas confirmé.
+- Rappels locaux Android à l’heure choisie dans « Mon espace » (09:00 par défaut), regroupés par jour et répétés tant que l’arrosage n’est pas confirmé.
+- Changer l’heure remplace les anciennes notifications ; confirmer l’arrosage relance le calendrier à la prochaine échéance. Toucher une notification ouvre « À faire ».
 - Date de contrôle du rempotage et note de personne référente en cas d’absence.
 
 Pour tester : ajoutez une plante, consultez « À faire », confirmez son arrosage, puis fermez et rouvrez l’application pour retrouver le carnet.
@@ -118,7 +119,7 @@ La météo provient d’[Open-Meteo](https://open-meteo.com/) et la recherche de
 
 Le scan de pièce, la compatibilité avant achat, l’estimation visuelle des dimensions, la marge de retard et le diagnostic de maladies restent à développer. Une photo sans objet de taille connue ne permet pas de mesurer correctement une plante.
 
-Les notifications sont regroupées par jour et programmées pour les **30 prochains jours**, puis renouvelées à chaque ouverture et modification du carnet. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. La personne référente est une simple note ; aucune invitation ni délégation distante n’est envoyée.
+Les notifications sont regroupées par jour et programmées pour les **30 prochains jours calendaires**, puis renouvelées à chaque ouverture, retour au premier plan, changement d’heure de rappel et modification du carnet. Une heure déjà passée commence au lendemain. L’heure suit le fuseau local au moment de la programmation : rouvrez l’application après un voyage. Au passage à l’heure d’été, une heure inexistante est décalée vers l’heure valide suivante, puis l’heure habituelle reprend le lendemain. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. La personne référente est une simple note ; aucune invitation ni délégation distante n’est envoyée.
 
 Les fiches et photos sauvegardées restent sur l’appareil, sans synchronisation ni export. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
 
@@ -127,7 +128,8 @@ Les fiches et photos sauvegardées restent sur l’appareil, sans synchronisatio
 ```text
 App.tsx                 Écrans, formulaires, photos et sauvegarde locale
 src/model.ts            Modèle de données, échéances et historique
-src/notifications.ts    Autorisation et programmation des rappels
+src/notifications.ts    Autorisation et programmation native des rappels
+src/reminders.ts        Regroupement, remplacement et nettoyage des relances
 src/plantApi.ts         Appel du serveur d’identification depuis le téléphone
 src/care.ts             Valeurs d’entretien et estimation d’eau
 src/irrigation.ts       Calcul contextualisé et observations d’humidité
@@ -146,6 +148,15 @@ npm test
 npx expo export --platform android
 npx expo export --platform web
 ```
+
+Pour vérifier les notifications sur Android :
+
+1. Dans « Mon espace », autorisez les rappels et choisissez une heure deux minutes dans le futur, puis enregistrez.
+2. Ajoutez une plante sans arrosage connu. Passez l’application en arrière-plan et attendez l’heure choisie.
+3. Touchez la notification : « À faire » doit s’ouvrir. Confirmez « J’ai arrosé » : la prochaine échéance remplace les relances de cette plante.
+4. Changez l’heure, puis désactivez les rappels : les anciennes notifications programmées doivent disparaître. Le message de programmation indique un échec si l’autorisation système a été retirée.
+
+Les tests automatisés couvrent le calendrier et l’adaptateur de programmation simulé ; la livraison effective dépend du téléphone, des autorisations et des restrictions de batterie Android.
 
 L’export Android vérifie la génération du bundle JavaScript ; il ne produit pas un APK et ne remplace pas un test sur téléphone.
 
