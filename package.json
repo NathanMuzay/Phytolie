@@ -23,7 +23,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "api": "node --env-file-if-exists=.env server.mjs",
+    "api": "node --experimental-strip-types --env-file-if-exists=.env server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },

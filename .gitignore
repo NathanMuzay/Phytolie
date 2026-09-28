@@ -40,3 +40,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Local account database (private)
+/data/
+*.sqlite
+*.sqlite-*

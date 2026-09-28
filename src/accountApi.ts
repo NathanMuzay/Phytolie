@@ -1,0 +1,38 @@
+import { parseGarden, type Garden } from './model.ts';
+export type AccountSession = { token: string; user: { id: string; email: string }; expiresAt: string };
+export class AccountError extends Error {
+  status: number;
+  constructor(message: string, status: number) { super(message); this.status = status; }
+}
+async function request(path: string, method: string, token?: string, body?: unknown) {
+  const base = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  if (!base) throw new Error('Serveur non configuré. Consultez le README.');
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`${base}${path}`, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal });
+    let data;
+    try { data = await response.json(); } catch { throw new Error('Réponse invalide. Redémarrez le serveur Folia avec npm run api.'); }
+    if (!response.ok) throw new AccountError(data.error || 'Requête refusée.', response.status);
+    return data;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('Le serveur met trop de temps à répondre. Rechargez la collection avant de réessayer.');
+    if (error instanceof TypeError) throw new Error('Serveur inaccessible. Vérifiez la connexion et npm run api.');
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+export async function authenticate(mode: 'login' | 'register', email: string, password: string): Promise<AccountSession> {
+  return request(`/auth/${mode}`, 'POST', undefined, { email, password });
+}
+export async function loadAccountGarden(session: AccountSession): Promise<{ garden: Garden; revision: number }> {
+  const data = await request('/garden', 'GET', session.token);
+  return { garden: parseGarden(JSON.stringify(data.garden)), revision: data.revision };
+}
+export async function saveAccountGarden(session: AccountSession, garden: Garden, revision: number): Promise<number> {
+  const data = await request('/garden', 'PUT', session.token, { garden, revision });
+  return data.revision;
+}
+export async function logoutAccount(session: AccountSession): Promise<void> { await request('/auth/logout', 'POST', session.token); }
+export function mergeLocalPlants(account: Garden, local: Garden): Garden {
+  const ids = new Set(account.plants.map(p => p.id));
+  return { ...account, plants: [...account.plants, ...local.plants.filter(p => !ids.has(p.id))] };
+}

@@ -8,6 +8,8 @@ import { requestReminders, syncReminders, onReminderOpened } from './src/notific
 import { careDefaults, estimateWaterAmount } from './src/care';
 import { wateringPlan, defaultIrrigation, Irrigation } from './src/irrigation';
 import { searchCities, fetchWeather, outdoorTemperature, City, Weather } from './src/weather';
+import { AccountScreen } from './src/AccountScreen';
+import { AccountSession, loadAccountGarden, saveAccountGarden, logoutAccount, mergeLocalPlants } from './src/accountApi';
 import { identifyPlant, PlantIdentification } from './src/plantApi';
 
 const empty: Garden = { plants: [], reminders: false };
@@ -23,6 +25,13 @@ function Field({ label, value, onChange, numeric = false, placeholder = '' }: { 
 }
 
 export default function App() {
+  const [account, setAccount] = useState<AccountSession | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  if (showAuth) return <AccountScreen onConnected={session => { setAccount(session); setShowAuth(false); }} onCancel={() => setShowAuth(false)} />;
+  return <GardenApp key={account?.user.id || 'local'} account={account} onOpenAuth={() => setShowAuth(true)} onDisconnected={() => { setAccount(null); setShowAuth(false); }} />;
+}
+
+function GardenApp({ account, onOpenAuth, onDisconnected }: { account: AccountSession | null; onOpenAuth: () => void; onDisconnected: () => void }) {
   const [irrigation, setIrrigation] = useState<Irrigation>({ ...defaultIrrigation });
   const [lastWateredInput, setLastWateredInput] = useState('');
   const [cityQuery, setCityQuery] = useState('');
@@ -51,6 +60,9 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [, refresh] = useState(0);
+  const revision = useRef(0);
+  const leaving = useRef(false);
+  const mounted = useRef(true);
   const scheduleQueue = useRef(Promise.resolve());
 
   function withWeather(plants: Plant[], city = garden.city) {
@@ -78,7 +90,9 @@ export default function App() {
     finally { setSearchingCity(false); }
   }
   function schedule(next: Garden) {
+    if (leaving.current || !mounted.current) return;
     scheduleQueue.current = scheduleQueue.current.catch(() => {}).then(async () => {
+      if (leaving.current || !mounted.current) return;
       const count = await syncReminders(withWeather(next.plants, next.city), next.reminders, next.reminderTime ?? DEFAULT_REMINDER_TIME);
       setReminderStatus(Platform.OS === 'web' ? 'Heure sauvegardée. Notifications disponibles sur Android.' : !next.reminders ? 'Rappels désactivés.' : count ? `${count} rappels programmés à ${next.reminderTime ?? DEFAULT_REMINDER_TIME}.` : 'Aucune échéance dans les 30 prochains jours.');
     }).catch(error => {
@@ -92,12 +106,47 @@ export default function App() {
     setReminderError('');
     if (await save({ ...garden, reminderTime: reminderTimeInput })) setNotice(`Heure des rappels enregistrée : ${reminderTimeInput}.`);
   }
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
-      const loaded = raw ? parseGarden(raw) : empty;
+  async function loadGarden() {
+    setReady(false); setLoadFailed(false);
+    try {
+      let loaded: Garden;
+      if (account) {
+        const result = await loadAccountGarden(account); loaded = result.garden; revision.current = result.revision;
+      } else {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY); loaded = raw ? parseGarden(raw) : empty;
+      }
+      if (!mounted.current) return;
       setGarden(loaded); setReminderTimeInput(loaded.reminderTime ?? DEFAULT_REMINDER_TIME); schedule(loaded);
-    }).catch(() => { setLoadFailed(true); setNotice('Impossible de lire la sauvegarde. Redémarrez l’application ; les données existantes sont conservées.'); }).finally(() => setReady(true));
+    } catch (error) {
+      if (mounted.current) { setLoadFailed(true); setNotice(error instanceof Error ? error.message : 'Impossible de lire la collection. Les données existantes sont conservées.'); }
+    } finally { if (mounted.current) setReady(true); }
+  }
+  useEffect(() => {
+    mounted.current = true; void loadGarden();
+    return () => { mounted.current = false; };
   }, []);
+  async function switchAccount() {
+    if (lock.current || scanning || leaving.current) return;
+    leaving.current = true; setBusy(true);
+    try {
+      if (account) await logoutAccount(account);
+      await scheduleQueue.current;
+      await syncReminders([], false);
+      if (account) onDisconnected(); else onOpenAuth();
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Changement de compte impossible. Réessayez.'); leaving.current = false; }
+    finally { if (mounted.current) setBusy(false); }
+  }
+  async function importLocalGarden() {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!raw) { setNotice('Aucune collection locale à importer.'); return; }
+      const local = parseGarden(raw);
+      const merged = mergeLocalPlants(garden, local);
+      const count = merged.plants.length - garden.plants.length;
+      if (!count) { setNotice('Aucune nouvelle plante locale à importer.'); return; }
+      if (await save(merged)) setNotice(`${count} plantes importées. La copie locale reste conservée.`);
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Import impossible. La collection locale est conservée.'); }
+  }
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => { if (state === 'active' && ready && !loadFailed) { refresh(n => n + 1); schedule(garden); } });
     const timer = setInterval(() => refresh(n => n + 1), 60000);
@@ -105,12 +154,21 @@ export default function App() {
   }, [garden, ready, loadFailed, weather]);
 
   async function save(next: Garden): Promise<boolean> {
-    if (lock.current || loadFailed) return false;
+    if (lock.current || loadFailed || leaving.current) return false;
     lock.current = true; setBusy(true);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (account) {
+        const portable: Garden = { ...next, plants: await Promise.all(next.plants.map(async plant => {
+          if (!plant.photo || plant.photo.startsWith('data:')) return plant;
+          if (Platform.OS === 'web') throw new Error('Cette photo locale n’est plus disponible. Choisissez-la à nouveau.');
+          const photo = new File(plant.photo);
+          return { ...plant, photo: `data:${photo.type || 'image/jpeg'};base64,${await photo.base64()}` };
+        })) };
+        revision.current = await saveAccountGarden(account, portable, revision.current);
+        next = portable;
+      } else await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setGarden(next); schedule(next); return true;
-    } catch { setNotice('Enregistrement impossible. Réessayez : la modification n’a pas été sauvegardée.'); return false; }
+    } catch (error) { const message = error instanceof Error ? error.message : 'Enregistrement impossible. Réessayez : la modification n’a pas été sauvegardée.'; setNotice(message); setError(message); return false; }
     finally { lock.current = false; setBusy(false); }
   }
   async function choosePhoto(camera: boolean) {
@@ -121,7 +179,9 @@ export default function App() {
       if (!result.canceled) {
         const asset = result.assets[0];
         let uri = asset.uri;
-        if (Platform.OS !== 'web') {
+        if (account && asset.base64) {
+          uri = `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`;
+        } else if (Platform.OS !== 'web') {
           const destination = new File(Paths.document, `plant-${Date.now()}.jpg`);
           new File(uri).copy(destination); uri = destination.uri;
         } else {
@@ -230,6 +290,8 @@ export default function App() {
     <View style={styles.header}><View><Text style={styles.brand}>folia<Text style={{ color: '#7EA175' }}>.</Text></Text><Text style={styles.subtitle}>UN PEU PLUS PROCHE DU VIVANT</Text></View><View style={styles.badge}><Text style={{ color: '#356148' }}>🌿 Mon espace</Text></View></View>
     <ScrollView contentContainerStyle={styles.content}>
       {!!notice && <Pressable onPress={() => setNotice('')} accessibilityRole="button" accessibilityLabel="Fermer le message"><Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}  ×</Text></Pressable>}
+      <View style={styles.section}><Text style={styles.muted}>{account ? `Compte : ${account.user.email}` : 'Collection locale · sans compte'}</Text><Button title={account ? 'Se déconnecter' : 'Connexion / Inscription'} secondary disabled={busy || scanning} onPress={() => void switchAccount()} /></View>
+      {(account || loadFailed) && <Button title="Recharger la collection" secondary disabled={busy || scanning || !ready} onPress={() => void loadGarden()} />}
       {!ready ? <Text style={styles.body}>Ouverture de votre jardin…</Text> : <>
       {tab === 'garden' && <>
         <Text style={styles.eyebrow}>VOTRE PETIT COIN DE NATURE</Text><Text style={styles.title}>La vie pousse{ '\n' }chez vous.</Text><Text style={styles.body}>Un carnet pour vos plantes, un rythme à votre mesure.</Text>
@@ -252,10 +314,11 @@ export default function App() {
         <Text style={styles.sectionTitle}>Rempotage à vérifier</Text>{garden.plants.map(p => <View key={p.id} style={styles.card}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{dateLabel(new Date(p.repotDate))}</Text></View>)}
       </>}
       {tab === 'settings' && <>
+        {account && <View style={styles.task}><Text style={styles.sectionTitle}>Ma collection en ligne</Text><Text style={styles.body}>Les modifications sont sauvegardées sur le serveur Folia. Rechargez pour récupérer celles d’un autre appareil.</Text><Button title="Importer mes plantes locales" secondary disabled={disabled} onPress={() => void importLocalGarden()} /><Text style={styles.footnote}>L’import ajoute les plantes absentes sans remplacer vos fiches ni vos préférences. Les photos sont transférées avec les plantes.</Text></View>}
         <Text style={styles.eyebrow}>À VOTRE RYTHME</Text><Text style={styles.title}>Mon appartement</Text>
         <View style={styles.task}><View style={styles.section}><Text style={styles.sectionTitle}>Rappels à {garden.reminderTime ?? DEFAULT_REMINDER_TIME}</Text><Switch accessibilityLabel="Activer les rappels quotidiens" value={garden.reminders} disabled={disabled || Platform.OS === 'web'} trackColor={{ true: '#356148' }} onValueChange={async value => { try { if (value && !(await requestReminders())) { setNotice('Autorisez les notifications dans les paramètres Android.'); return; } await save({ ...garden, reminders: value }); } catch { setNotice('Impossible d’activer les notifications sur cet appareil.'); } }} /></View><Field label="Heure des rappels (HH:MM)" value={reminderTimeInput} onChange={value => { setReminderTimeInput(value); setReminderError(''); }} placeholder="09:00" /><Button title="Enregistrer l’heure" secondary disabled={disabled} onPress={() => void saveReminderTime()} />{!!reminderError && <Text accessibilityRole="alert" style={styles.error}>{reminderError}</Text>}{!!reminderStatus && <Text accessibilityLiveRegion="polite" style={styles.body}>{reminderStatus}</Text>}<Text style={styles.body}>{Platform.OS === 'web' ? 'Les notifications locales sont disponibles dans l’application Android.' : 'Un rappel quotidien dès l’échéance, jusqu’à confirmation de l’arrosage. Une notification regroupe les plantes du jour. Un arrosage confirmé recalcule la prochaine échéance ; un terreau humide reporte la vérification. Programmation sur 30 jours, renouvelée à chaque ouverture. Heure locale du téléphone ; après un changement de fuseau, rouvrez l’application.'}</Text></View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Météo extérieure</Text><Field label="Rechercher une ville" value={cityQuery} onChange={setCityQuery} placeholder="Paris" /><Button title={searchingCity ? 'Recherche…' : 'Rechercher'} secondary disabled={disabled || searchingCity} onPress={() => void findCities()} />{cities.map(city => <Button key={city.id} secondary title={`${city.name}, ${city.admin1 || ''}, ${city.country || ''}`} disabled={disabled} onPress={async () => { if (await save({ ...garden, city })) { setCities([]); setWeatherStatus('Chargement de la météo…'); } }} />)}{garden.city && <Text style={styles.body}>{garden.city.name} : {outdoorTemperature(weather, garden.city) != null ? `${weather!.temperature} °C · relevé à ${new Date(weather!.fetchedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'température saisie utilisée en attendant la météo'}</Text>}{!!weatherStatus && <Text style={styles.body}>{weatherStatus}</Text>}{garden.city && <Button title="Désactiver la météo" secondary disabled={disabled} onPress={() => void save({ ...garden, city: undefined })} />}<Text style={styles.footnote}>Source : Open-Meteo (open-meteo.com). Actualisation à l’ouverture et chaque heure. Uniquement pour les plantes en extérieur ; en cas d’échec, température saisie. La pluie n’est pas déduite de l’arrosage.</Text></View>
-        <View style={styles.task}><Text style={styles.sectionTitle}>Données et photos</Text><Text style={styles.body}>Le carnet reste sur cet appareil. Lors d’une identification, la photo est envoyée à votre serveur local puis à plant.id. Consultez les conditions et la politique de confidentialité de Kindwise avant un usage public.</Text></View>
+        <View style={styles.task}><Text style={styles.sectionTitle}>Données et photos</Text><Text style={styles.body}>En mode local, le carnet reste sur cet appareil. Avec un compte, les fiches et photos sont sauvegardées sur votre serveur Folia. Lors d’une identification, la photo est envoyée au serveur puis à plant.id. Consultez les conditions et la politique de confidentialité de Kindwise avant un usage public.</Text></View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Première pousse · v1.1</Text><Text style={styles.body}>La reconnaissance remplit l’espèce, un nom courant, un terreau et une fréquence de départ. La fréquence et la dose peuvent être estimées selon le pot, le terreau et l’environnement. Validez toujours l’humidité réelle du terreau.</Text><Text style={styles.body}>Le diagnostic de maladies, le scan de pièce et la mesure automatique des dimensions restent à développer.</Text></View>
       </>}
       </>}

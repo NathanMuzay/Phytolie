@@ -62,7 +62,7 @@ Ouvrez Expo Go sur Android et scannez le QR code affiché dans le terminal. Gard
 npm run web
 ```
 
-Ouvrez l’adresse affichée dans le terminal (généralement `http://localhost:8081`). L’aperçu web permet de tester le carnet et les formulaires ; les notifications locales nécessitent Android. La sauvegarde web est propre au navigateur et à l’adresse utilisés.
+Ouvrez l’adresse affichée dans le terminal (généralement `http://localhost:8081`). L’aperçu web permet de tester le carnet et les formulaires ; les notifications locales nécessitent Android. En mode local, la sauvegarde web est propre au navigateur et à l’adresse utilisés. Avec un compte, la collection est conservée par le serveur Folia.
 
 **Émulateur Android :** installez Android Studio, créez un appareil virtuel dans Device Manager et démarrez-le, puis :
 
@@ -71,6 +71,22 @@ npm run android
 ```
 
 Cette commande ouvre l’application via Expo Go sur l’appareil disponible. Elle ne construit pas un APK.
+
+### Comptes et collections
+
+1. Démarrez `npm run api`, puis ouvrez « Connexion / Inscription » dans l’application.
+2. Créez un compte avec une adresse e-mail et un mot de passe de 12 à 128 caractères. Aucune clé de service supplémentaire n’est nécessaire.
+3. Dans « Mon espace », utilisez « Importer mes plantes locales » pour copier vos anciennes plantes dans le compte. Les photos sont transférées ; la collection locale reste intacte. Relancer l’import ne duplique pas les identifiants déjà présents.
+4. Connectez-vous sur un autre appareil pointant vers **le même serveur** pour retrouver vos plantes. « Recharger la collection » récupère les modifications faites ailleurs. Si une autre session a modifié la collection, une sauvegarde obsolète est refusée au lieu d’écraser ses changements.
+5. « Se déconnecter » révoque la session, efface ses rappels programmés sur cet appareil et revient à la collection locale. Un autre compte ne voit pas les fiches du précédent.
+
+Les comptes sont stockés dans `data/folia.sqlite`, exclu de Git. Le chemin peut être changé avec `FOLIA_DB_PATH`. Sauvegardez ce fichier **serveur arrêté** pour conserver comptes et collections. Supprimer le fichier supprime les comptes ; réinstaller l’application mobile ne supprime pas les collections du serveur. Les photos sont stockées dans la collection (limite de 200 plantes et de 24 Mo par compte).
+
+Les mots de passe sont hachés avec scrypt et un sel aléatoire. Les jetons de session sont aléatoires, stockés sous forme d’empreintes sur le serveur et uniquement en mémoire côté application : une fermeture complète ou un rechargement web demande une nouvelle connexion. La session expire après 24 h. Les tentatives d’authentification sont limitées à 20 par adresse réseau et par tranche de 15 minutes. L’adresse e-mail n’est pas vérifiée et la récupération de mot de passe n’est pas encore disponible.
+
+Le mode compte exige une connexion au serveur pour charger ou modifier sa collection ; il n’existe pas encore de file de synchronisation hors ligne. Les modifications locales ne sont jamais importées automatiquement. Les réglages d’entretien et de rappels appartiennent au compte, mais l’autorisation de notification reste propre à chaque téléphone.
+
+Cette configuration HTTP est destinée au développement sur un réseau local de confiance. Pour exposer les comptes sur Internet, déployez le serveur derrière HTTPS et configurez `EXPO_PUBLIC_API_URL` avec cette adresse ; les comptes ne sont pas hébergés automatiquement par ce projet. Le proxy d’identification reste accessible au mode local : ne l’exposez pas publiquement sans contrôle d’accès et quotas adaptés.
 
 ### En cas de difficulté
 
@@ -100,7 +116,8 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 - Carnet de plantes avec photo depuis la caméra ou la galerie et saisie manuelle toujours possible.
 - Fréquence personnalisée de vérification de l’arrosage, entre 1 et 90 jours.
 - Écran « À faire », confirmation « J’ai arrosé » et historique.
-- Sauvegarde locale persistante et suppression avec confirmation.
+- Compte utilisateur : inscription, connexion, déconnexion et collection privée sauvegardée sur le serveur.
+- Mode local persistant, import vers un compte et suppression des plantes avec confirmation.
 - Rappels locaux Android à l’heure choisie dans « Mon espace » (09:00 par défaut), regroupés par jour et répétés tant que l’arrosage n’est pas confirmé.
 - Changer l’heure remplace les anciennes notifications ; confirmer l’arrosage relance le calendrier à la prochaine échéance. Toucher une notification ouvre « À faire ».
 - Date de contrôle du rempotage et note de personne référente en cas d’absence.
@@ -121,12 +138,14 @@ Le scan de pièce, la compatibilité avant achat, l’estimation visuelle des di
 
 Les notifications sont regroupées par jour et programmées pour les **30 prochains jours calendaires**, puis renouvelées à chaque ouverture, retour au premier plan, changement d’heure de rappel et modification du carnet. Une heure déjà passée commence au lendemain. L’heure suit le fuseau local au moment de la programmation : rouvrez l’application après un voyage. Au passage à l’heure d’été, une heure inexistante est décalée vers l’heure valide suivante, puis l’heure habituelle reprend le lendemain. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. La personne référente est une simple note ; aucune invitation ni délégation distante n’est envoyée.
 
-Les fiches et photos sauvegardées restent sur l’appareil, sans synchronisation ni export. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
+En mode local, les fiches et photos restent sur l’appareil, sans synchronisation. En mode compte, elles sont stockées sur le serveur Folia et retrouvées à la connexion ; les modifications des autres appareils sont récupérées par rechargement explicite. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet local, mais pas la collection du compte sur le serveur. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
 
 ## Structure
 
 ```text
-App.tsx                 Écrans, formulaires, photos et sauvegarde locale
+App.tsx                 Écrans et sauvegarde locale ou liée au compte
+src/AccountScreen.tsx   Inscription et connexion
+src/accountApi.ts       Client des comptes et import local
 src/model.ts            Modèle de données, échéances et historique
 src/notifications.ts    Autorisation et programmation native des rappels
 src/reminders.ts        Regroupement, remplacement et nettoyage des relances
@@ -134,7 +153,8 @@ src/plantApi.ts         Appel du serveur d’identification depuis le téléphon
 src/care.ts             Valeurs d’entretien et estimation d’eau
 src/irrigation.ts       Calcul contextualisé et observations d’humidité
 src/weather.ts          Géocodage et température extérieure Open-Meteo
-server.mjs              Proxy local sécurisé vers plant.id
+server.mjs              API des comptes et proxy vers plant.id
+server/accounts.mjs     SQLite, mots de passe, sessions et collections privées
 tests/model.test.mjs     Tests des règles de suivi
 .env.example            Exemple de configuration sans secret
 app.json                Configuration Expo et permissions Android
