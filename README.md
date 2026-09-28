@@ -89,6 +89,8 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 - Reconnaissance par photo avec plant.id et affichage du niveau de confiance.
 - Préremplissage du nom courant, du nom scientifique, d’un terreau et d’une fréquence de départ.
 - Quantité d’eau indicative calculée depuis le diamètre du pot et ajustable avant enregistrement.
+- Modification des fiches depuis « Modifier la fiche », avec conservation de l’historique des arrosages.
+- Tri de la collection par urgence (activé par défaut, désactivable) et échéances visibles dans les fiches.
 - Carnet de plantes avec photo depuis la caméra ou la galerie et saisie manuelle toujours possible.
 - Fréquence personnalisée de vérification de l’arrosage, entre 1 et 90 jours.
 - Écran « À faire », confirmation « J’ai arrosé » et historique.

@@ -39,3 +39,7 @@ export function reminderDates(plant: Plant, now = new Date()): Date[] {
   if (first <= now) first.setDate(first.getDate() + 1);
   return Array.from({ length: 30 }, (_, index) => addDays(first, index));
 }
+
+export function sortPlantsByUrgency(plants: Plant[]): Plant[] {
+  return [...plants].sort((a, b) => +dueDate(a) - +dueDate(b) || a.name.localeCompare(b.name, 'fr'));
+}

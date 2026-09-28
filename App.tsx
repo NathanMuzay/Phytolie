@@ -3,7 +3,7 @@ import { AppState, Image, KeyboardAvoidingView, Modal, Platform, Pressable, Safe
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
-import { Garden, Plant, STORAGE_KEY, daysUntil, dueDate, parseGarden, waterPlant } from './src/model';
+import { Garden, Plant, STORAGE_KEY, daysUntil, dueDate, parseGarden, waterPlant, sortPlantsByUrgency } from './src/model';
 import { requestReminders, syncReminders } from './src/notifications';
 import { careDefaults, estimateWaterAmount } from './src/care';
 import { identifyPlant } from './src/plantApi';
@@ -30,6 +30,8 @@ export default function App() {
   const lock = useRef(false);
   const [tab, setTab] = useState<'garden' | 'tasks' | 'settings'>('garden');
   const [modal, setModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [sortByUrgency, setSortByUrgency] = useState(true);
   const [form, setForm] = useState<Form>(initialForm);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -87,7 +89,7 @@ export default function App() {
           setForm(previous => ({
             ...previous,
             photo: uri,
-            name: identification.commonName,
+            name: previous.name.trim() || identification.commonName,
             species: identification.scientificName,
             interval: String(profile.interval),
             soil: profile.soil,
@@ -112,18 +114,32 @@ export default function App() {
     });
   }
   async function addPlant() {
+    const existing = editingId ? garden.plants.find(p => p.id === editingId) : undefined;
+    if (editingId && !existing) { setError("Cette plante n’existe plus."); return; }
     if (!form.name.trim()) { setError('Donnez un nom à votre plante.'); return; }
     const interval = Number(form.interval), height = Number(form.height), pot = Number(form.pot), temperature = Number(form.temperature), waterAmount = Number(form.waterAmount);
     if (!Number.isInteger(interval) || interval < 1 || interval > 90 || !Number.isFinite(height) || height <= 0 || !Number.isFinite(pot) || pot <= 0 || !form.temperature.trim() || !Number.isFinite(temperature) || temperature < -10 || temperature > 50 || !Number.isFinite(waterAmount) || waterAmount < 0 || waterAmount > 5000) { setError('Vérifiez les valeurs : fréquence de 1 à 90 jours, dimensions positives, température de −10 à 50 °C et quantité de 0 à 5 000 ml.'); return; }
     const repot = form.repotDate ? new Date(`${form.repotDate}T12:00:00`) : new Date(new Date().setFullYear(new Date().getFullYear() + 1));
     if (form.repotDate && (!/^\d{4}-\d{2}-\d{2}$/.test(form.repotDate) || !Number.isFinite(+repot) || repot.toISOString().slice(0, 10) !== form.repotDate)) { setError('La date doit être valide, au format AAAA-MM-JJ.'); return; }
-    const plant: Plant = { ...form, id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: null, createdAt: new Date().toISOString(), repotDate: repot.toISOString(), history: [] };
-    if (await save({ ...garden, plants: [...garden.plants, plant] })) { setModal(false); setForm(initialForm); setNotice('Plante ajoutée. Aucun arrosage n’est enregistré pour le moment.'); }
+    const plant: Plant = { ...form, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? [] };
+    if (await save({ ...garden, plants: existing ? garden.plants.map(p => p.id === existing.id ? plant : p) : [...garden.plants, plant] })) { setModal(false); setEditingId(null); setForm(initialForm); setNotice(existing ? 'Fiche modifiée. Historique des arrosages conservé.' : 'Plante ajoutée. Aucun arrosage n’est enregistré pour le moment.'); }
   }
-  const due = garden.plants.filter(p => daysUntil(dueDate(p)) <= 0);
+  const sortedPlants = sortPlantsByUrgency(garden.plants);
+  const collection = sortByUrgency ? sortedPlants : garden.plants;
+  const due = sortedPlants.filter(p => daysUntil(dueDate(p)) <= 0);
   const current = garden.plants.find(p => p.id === selected);
   const disabled = busy || !ready || loadFailed;
-  function openAdd() { setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
+  function openAdd() { setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); setModal(true); }
+  function openEdit(plant: Plant) {
+    setEditingId(plant.id);
+    setForm({ name: plant.name, species: plant.species, room: plant.room, photo: plant.photo || '',
+      interval: String(plant.interval), height: String(plant.height), pot: String(plant.pot),
+      temperature: String(plant.temperature), soil: plant.soil, caretaker: plant.caretaker,
+      repotDate: plant.repotDate.slice(0, 10), waterAmount: String(plant.waterAmount ?? estimateWaterAmount(plant.pot, plant.species)),
+      wateringAdvice: plant.wateringAdvice || '', identificationConfidence: plant.identificationConfidence == null ? '' : String(plant.identificationConfidence),
+      identificationSource: plant.identificationSource || '' });
+    setError(''); setScanStatus(''); setSelected(null); setModal(true);
+  }
   async function watered(p: Plant) {
     if (await save({ ...garden, plants: garden.plants.map(item => item.id === p.id ? waterPlant(item) : item) })) setNotice(`Arrosage de ${p.name} enregistré.`);
   }
@@ -137,10 +153,11 @@ export default function App() {
         <Text style={styles.eyebrow}>VOTRE PETIT COIN DE NATURE</Text><Text style={styles.title}>La vie pousse{ '\n' }chez vous.</Text><Text style={styles.body}>Un carnet pour vos plantes, un rythme à votre mesure.</Text>
         <View style={styles.hero}><Text style={styles.heroIcon}>🌱</Text><View style={{ flex: 1 }}><Text style={styles.heroTitle}>{garden.plants.length ? `${garden.plants.length} plante${garden.plants.length > 1 ? 's' : ''} à vos côtés` : 'Votre jardin commence ici'}</Text><Text style={styles.heroBody}>{due.length ? `${due.length} plante${due.length > 1 ? 's' : ''} à vérifier aujourd’hui` : 'Prenez le temps de les voir grandir.'}</Text></View></View>
         <View style={styles.section}><Text style={styles.sectionTitle}>Mes plantes</Text><Text style={styles.counter}>{garden.plants.length}</Text></View>
+        <View style={styles.section}><Text style={styles.body}>Trier par urgence d’arrosage</Text><Switch accessibilityLabel="Trier par urgence d’arrosage" value={sortByUrgency} onValueChange={setSortByUrgency} /></View>
         {garden.plants.length === 0 && <View style={styles.empty}><Text style={styles.emptyIcon}>🪴</Text><Text style={styles.sectionTitle}>Faites entrer la première.</Text><Text style={[styles.body, { textAlign: 'center' }]}>Une photo, un petit nom et votre carnet prend vie.</Text></View>}
-        {garden.plants.map(p => <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${p.name}`} onPress={() => { setSelected(p.id); setConfirmDelete(false); }} style={styles.card}>
+        {collection.map(p => <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${p.name}`} onPress={() => { setSelected(p.id); setConfirmDelete(false); }} style={styles.card}>
           {p.photo ? <Image source={{ uri: p.photo }} style={styles.thumbnail} /> : <View style={[styles.thumbnail, styles.placeholder]}><Text style={{ fontSize: 36 }}>🪴</Text></View>}
-          <View style={{ flex: 1 }}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{p.species} · {p.room}</Text><Text style={[styles.status, daysUntil(dueDate(p)) <= 0 && { color: '#936329' }]}>{!p.lastWatered ? 'Premier arrosage à renseigner' : daysUntil(dueDate(p)) <= 0 ? 'Terreau à vérifier' : `À vérifier le ${dateLabel(dueDate(p))}`}</Text></View><Text style={styles.muted}>↗</Text>
+          <View style={{ flex: 1 }}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{p.species} · {p.room}</Text><Text style={[styles.status, daysUntil(dueDate(p)) <= 0 && { color: '#936329' }]}>{!p.lastWatered ? `Premier arrosage à renseigner · ${dateLabel(dueDate(p))}` : daysUntil(dueDate(p)) <= 0 ? `À vérifier depuis le ${dateLabel(dueDate(p))}` : `À vérifier le ${dateLabel(dueDate(p))}`}</Text></View><Text style={styles.muted}>↗</Text>
         </Pressable>)}
         <Button title="＋ Ajouter une plante" onPress={openAdd} disabled={disabled} />
         <Text style={styles.footnote}>Chaque plante a son rythme. Les rappels invitent à vérifier le terreau avant d’arroser.</Text>
@@ -149,7 +166,7 @@ export default function App() {
         <Text style={styles.eyebrow}>LES PETITES ATTENTIONS</Text><Text style={styles.title}>À faire aujourd’hui</Text><Text style={styles.body}>Sans confirmation, un arrosage reste à faire.</Text>
         {!due.length && <View style={styles.empty}><Text style={styles.emptyIcon}>☀️</Text><Text style={styles.sectionTitle}>Rien à signaler.</Text><Text style={styles.body}>Vos prochaines échéances apparaîtront ici.</Text></View>}
         {due.map(p => <View key={p.id} style={styles.task}><Text style={styles.plantName}>💧 {p.name}</Text><Text style={styles.body}>{p.lastWatered ? `Échéance : ${dateLabel(dueDate(p))}` : 'Aucun arrosage enregistré'}. Vérifiez si le terreau a besoin d’eau.{p.waterAmount ? ` Si le terreau est sec, commencez par environ ${p.waterAmount} ml et arrêtez si l’eau s’écoule.` : ''}</Text>{!!p.caretaker && <Text style={styles.status}>Référent : {p.caretaker}</Text>}<Button title="J’ai arrosé" disabled={disabled} onPress={() => void watered(p)} /></View>)}
-        <Text style={styles.sectionTitle}>À venir</Text>{garden.plants.filter(p => daysUntil(dueDate(p)) > 0).map(p => <View style={styles.card} key={p.id}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{dateLabel(dueDate(p))}</Text></View>)}
+        <Text style={styles.sectionTitle}>À venir</Text>{sortedPlants.filter(p => daysUntil(dueDate(p)) > 0).map(p => <View style={styles.card} key={p.id}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{dateLabel(dueDate(p))}</Text></View>)}
         <Text style={styles.sectionTitle}>Rempotage à vérifier</Text>{garden.plants.map(p => <View key={p.id} style={styles.card}><Text style={styles.plantName}>{p.name}</Text><Text style={styles.muted}>{dateLabel(new Date(p.repotDate))}</Text></View>)}
       </>}
       {tab === 'settings' && <>
@@ -161,18 +178,20 @@ export default function App() {
       </>}
     </ScrollView>
     <View style={styles.nav}>{([{ id: 'garden', icon: '⌂', label: 'Mes plantes' }, { id: 'tasks', icon: '✓', label: 'À faire' }, { id: 'settings', icon: '⚙', label: 'Mon espace' }] as const).map(item => <Pressable key={item.id} accessibilityRole="tab" accessibilityState={{ selected: tab === item.id }} onPress={() => setTab(item.id)} style={[styles.navItem, tab === item.id && styles.navActive]}><Text style={styles.navIcon}>{item.icon}</Text><Text style={styles.navLabel}>{item.label}{item.id === 'tasks' && due.length ? ` · ${due.length}` : ''}</Text></Pressable>)}</View>
-    <Modal visible={modal} animationType="slide" onRequestClose={() => setModal(false)}><SafeAreaView style={styles.safe}><KeyboardAvoidingView style={styles.shell} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>UNE NOUVELLE RENCONTRE</Text><Text style={styles.title}>Scanner une plante</Text><Text style={styles.body}>Prenez une photo nette de la plante entière ou d’une feuille. plant.id proposera une espèce et préremplira la fiche.</Text>
+    <Modal visible={modal} animationType="slide" onRequestClose={() => { if (!scanning && !busy) setModal(false); }}><SafeAreaView style={styles.safe}><KeyboardAvoidingView style={styles.shell} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>UNE NOUVELLE RENCONTRE</Text><Text style={styles.title}>{editingId ? 'Modifier la plante' : 'Scanner une plante'}</Text><Text style={styles.body}>Prenez une photo nette de la plante entière ou d’une feuille. plant.id proposera une espèce et préremplira la fiche.</Text>
       {!!form.photo && <Image source={{ uri: form.photo }} style={styles.largePhoto} />}
       <View style={styles.row}><Button title={scanning ? 'Analyse…' : '📷 Scanner'} secondary onPress={() => void choosePhoto(true)} disabled={scanning} /><Button title="Galerie" secondary onPress={() => void choosePhoto(false)} disabled={scanning} /></View>
       {!!scanStatus && <Text accessibilityLiveRegion="polite" style={styles.scanStatus}>{scanStatus}</Text>}
       {([{ key: 'name', label: 'Petit nom *', placeholder: 'Monstera du salon' }, { key: 'species', label: 'Espèce', placeholder: 'Monstera deliciosa' }, { key: 'room', label: 'Pièce' }, { key: 'interval', label: 'Vérifier l’arrosage tous les… jours *', numeric: true }, { key: 'waterAmount', label: 'Quantité indicative si le terreau est sec (ml)', numeric: true }, { key: 'height', label: 'Hauteur de la plante (cm)', numeric: true }, { key: 'pot', label: 'Diamètre du pot (cm)', numeric: true }, { key: 'temperature', label: 'Température de la pièce (°C)', numeric: true }, { key: 'soil', label: 'Type de terreau' }, { key: 'repotDate', label: 'Vérifier le rempotage le (AAAA-MM-JJ)', placeholder: 'Par défaut : dans un an' }, { key: 'caretaker', label: 'Personne référente pendant une absence', placeholder: 'Prénom — note personnelle' }] as { key: keyof Form; label: string; placeholder?: string; numeric?: boolean }[]).map(f => <Field key={f.key} label={f.label} placeholder={f.placeholder} numeric={f.numeric} value={form[f.key]} onChange={value => updateForm(f.key, value)} />)}
       {!!form.wateringAdvice && <View style={styles.task}><Text style={styles.sectionTitle}>Conseil fourni par plant.id</Text><Text style={styles.body}>{form.wateringAdvice}</Text></View>}
       <Text style={styles.footnote}>La reconnaissance est une proposition, pas une certitude. La quantité est calculée à partir du diamètre saisi et doit être ajustée au drainage, à la saison et à l’humidité du terreau. Les dimensions ne peuvent pas être déduites d’une photo sans repère d’échelle.</Text>
-      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}<Button title="Ajouter à mon appartement" onPress={() => void addPlant()} disabled={disabled || scanning} /><Button title="Annuler" secondary onPress={() => setModal(false)} />
+      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}<Button title={editingId ? "Enregistrer les modifications" : "Ajouter à mon appartement"} onPress={() => void addPlant()} disabled={disabled || scanning} /><Button title="Annuler" secondary disabled={scanning || busy} onPress={() => setModal(false)} />
     </ScrollView></KeyboardAvoidingView></SafeAreaView></Modal>
     <Modal visible={!!current} animationType="slide" onRequestClose={() => setSelected(null)}><SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={[styles.content, { maxWidth: 720, width: '100%', alignSelf: 'center' }]}>{current && <>
       <Button title="← Mes plantes" secondary onPress={() => setSelected(null)} />{!!current.photo && <Image source={{ uri: current.photo }} style={styles.largePhoto} />}<Text style={styles.title}>{current.name}</Text><Text style={styles.body}>{current.species} · {current.room}</Text>
       <View style={styles.task}><Text style={styles.sectionTitle}>Son environnement</Text><Text style={styles.body}>{current.height} cm de haut · pot de {current.pot} cm{ '\n' }{current.soil} · {current.temperature} °C{ '\n' }Vérification tous les {current.interval} jours{current.waterAmount ? ` · environ ${current.waterAmount} ml si le terreau est sec` : ''}{ '\n' }Rempotage à vérifier : {dateLabel(new Date(current.repotDate))}</Text>{!!current.wateringAdvice && <Text style={styles.body}>Conseil plant.id : {current.wateringAdvice}</Text>}{current.identificationSource === 'plant.id' && current.identificationConfidence != null && <Text style={styles.status}>Identification plant.id · confiance {Math.round(current.identificationConfidence * 100)} %</Text>}{!!current.caretaker && <Text style={styles.body}>Référent (note) : {current.caretaker}</Text>}</View>
+      <Button title="Modifier la fiche" secondary onPress={() => openEdit(current)} disabled={disabled} />
+      <Text style={styles.body}>Prochaine vérification : {dateLabel(dueDate(current))}{daysUntil(dueDate(current)) <= 0 ? " · à faire" : ""}</Text>
       <Button title="💧 J’ai arrosé" onPress={() => void watered(current)} disabled={disabled || (!!current.lastWatered && daysUntil(new Date(current.lastWatered)) === 0)} /><Text style={styles.footnote}>{current.lastWatered ? `Dernier arrosage : ${dateLabel(new Date(current.lastWatered))}` : 'Aucun arrosage enregistré. Vérifiez le terreau avant d’arroser.'}</Text>
       <Text style={styles.sectionTitle}>Historique des arrosages</Text>{current.history.length ? current.history.map((entry, i) => <Text style={styles.history} key={`${entry}-${i}`}>✓  {dateLabel(new Date(entry))} à {new Date(entry).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text>) : <Text style={styles.body}>Les arrosages confirmés apparaîtront ici.</Text>}
       {confirmDelete ? <View style={styles.task}><Text style={styles.body}>Supprimer cette plante et son historique ?</Text><Button title="Confirmer la suppression" disabled={disabled} onPress={async () => { if (await save({ ...garden, plants: garden.plants.filter(p => p.id !== current.id) })) setSelected(null); }} /><Button title="Conserver la plante" secondary onPress={() => setConfirmDelete(false)} /></View> : <Button title="Supprimer cette plante" secondary onPress={() => setConfirmDelete(true)} />}

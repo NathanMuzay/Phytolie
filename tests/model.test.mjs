@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dueDate, daysUntil, waterPlant, reminderDates, parseGarden } from '../src/model.ts';
+import { dueDate, daysUntil, waterPlant, reminderDates, parseGarden, sortPlantsByUrgency } from '../src/model.ts';
 import { careDefaults, estimateWaterAmount } from '../src/care.ts';
 
 const plant = { id: '1', name: 'Fern', species: 'Unknown', room: 'Salon', height: 30, pot: 14, soil: 'Terreau', temperature: 20, interval: 7, lastWatered: null, createdAt: '2026-09-01T12:00:00Z', repotDate: '2027-09-01T12:00:00Z', caretaker: '', history: [] };
@@ -50,4 +50,12 @@ test('Water estimate grows with the pot and is lower for succulents', () => {
   assert.ok(small > 0 && large > small);
   assert.ok(succulent < large);
   assert.equal(estimateWaterAmount(0), 0);
+});
+
+test('Urgency ordering puts oldest deadlines first without mutating the collection', () => {
+  const later = { ...plant, id: 'later', lastWatered: '2026-09-15T12:00:00Z' };
+  const overdue = { ...plant, id: 'overdue', lastWatered: '2026-08-01T12:00:00Z' };
+  const original = [later, plant, overdue];
+  assert.deepEqual(sortPlantsByUrgency(original).map(p => p.id), ['overdue', '1', 'later']);
+  assert.deepEqual(original.map(p => p.id), ['later', '1', 'overdue']);
 });
