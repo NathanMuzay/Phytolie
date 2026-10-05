@@ -1,3 +1,4 @@
+import { palette, fonts } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { File } from 'expo-file-system';
@@ -79,7 +80,7 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: 
       <View onLayout={event => setFrame({ width: event.nativeEvent.layout.width, height: 360 })} style={styles.photo}>
         <Image source={{ uri: photo }} resizeMode="contain" style={StyleSheet.absoluteFill} />
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {rect && landmarkNames.map((key, index) => points[key] && <View key={key} style={[styles.dot, { left: rect.left + points[key]!.x * rect.width - 10, top: rect.top + points[key]!.y * rect.height - 10, backgroundColor: active === key ? '#AC461C' : '#245940' }]}><Text style={styles.dotText}>{index + 1}</Text></View>)}
+          {rect && landmarkNames.map((key, index) => points[key] && <View key={key} style={[styles.dot, { left: rect.left + points[key]!.x * rect.width - 10, top: rect.top + points[key]!.y * rect.height - 10, backgroundColor: active === key ? '#AC461C' : palette.olive }]}><Text style={styles.dotText}>{index + 1}</Text></View>)}
         </View>
         <Pressable accessibilityLabel={`Placer : ${labels[active]}`} disabled={disabled || running || !size} style={StyleSheet.absoluteFill} onPress={event => { if (!size) return; const p = pointFromTouch(event.nativeEvent.locationX, event.nativeEvent.locationY, size, frame); if (p) place(p); }} />
       </View>
@@ -96,13 +97,13 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: 
   </View>;
 }
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E6EBDD', borderRadius: 22, padding: 20, gap: 14 },
-  title: { color: '#2A4734', fontSize: 20, fontWeight: '600' }, body: { color: '#64715F', fontSize: 15, lineHeight: 23 },
-  label: { color: '#3D573F', fontWeight: '600', fontSize: 13 }, hint: { color: '#64715F', fontSize: 12, lineHeight: 19 },
-  input: { borderWidth: 1, borderColor: '#DCE3D3', borderRadius: 12, padding: 12, color: '#233E2D', fontSize: 16 },
-  button: { backgroundColor: '#E8EFDF', borderRadius: 15, padding: 15, minHeight: 48 }, buttonText: { color: '#245940', textAlign: 'center', fontWeight: '600' },
-  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, option: { padding: 10, borderRadius: 10, backgroundColor: '#F7F8F2', borderWidth: 1, borderColor: '#DCE3D3' },
-  selected: { borderColor: '#245940', backgroundColor: '#DFEDD8' }, optionText: { color: '#245940', fontSize: 12 },
-  photo: { height: 360, backgroundColor: '#EEF1E9', overflow: 'hidden' }, dot: { position: 'absolute', width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#FFF' },
-  dotText: { color: '#FFF', fontSize: 11, fontWeight: '700' }, error: { color: '#A33827', lineHeight: 21 },
+  card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: 2, padding: 20, gap: 14 },
+  title: { color: palette.ink, fontFamily: fonts.editorial, fontSize: 26, fontWeight: '400' }, body: { color: palette.muted, fontSize: 15, lineHeight: 23 },
+  label: { color: palette.olive, fontWeight: '600', fontSize: 13 }, hint: { color: palette.muted, fontSize: 12, lineHeight: 19 },
+  input: { borderWidth: 1, borderColor: palette.line, borderRadius: 2, padding: 12, color: palette.ink, fontSize: 16 },
+  button: { backgroundColor: palette.sage, borderRadius: 2, padding: 15, minHeight: 48 }, buttonText: { color: palette.olive, textAlign: 'center', fontWeight: '600' },
+  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, option: { padding: 10, borderRadius: 10, backgroundColor: palette.paper, borderWidth: 1, borderColor: palette.line },
+  selected: { borderColor: palette.olive, backgroundColor: palette.sage }, optionText: { color: palette.olive, fontSize: 12 },
+  photo: { height: 360, backgroundColor: palette.sage, overflow: 'hidden' }, dot: { position: 'absolute', width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.surface },
+  dotText: { color: palette.surface, fontSize: 11, fontWeight: '700' }, error: { color: '#A33827', lineHeight: 21 },
 });
