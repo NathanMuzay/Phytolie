@@ -1,3 +1,4 @@
+import { validLandmarks, type Landmarks, type ImageSize } from './measurement.ts';
 export type PlantIdentification = {
   commonName: string;
   scientificName: string;
@@ -46,4 +47,15 @@ export async function identifyPlant(base64: string): Promise<PlantIdentification
     throw new Error('Résultats d’identification invalides. Réessayez ou saisissez l’espèce manuellement.');
   }
   return suggestions;
+}
+
+export async function detectPhotoDimensions(image: string, size: ImageSize, referenceCm: number, referenceDescription: string): Promise<Landmarks> {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  if (!apiUrl) throw new Error('Serveur non configuré. Renseignez EXPO_PUBLIC_API_URL ou placez les points manuellement.');
+  const result = await requestJson(`${apiUrl}/measure`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image, ...size, referenceCm, referenceDescription }),
+  }, 55000, 'La mesure dépasse 55 secondes. Réessayez ou placez les points manuellement.');
+  if (!validLandmarks(result?.points)) throw new Error('Points reçus invalides. Placez-les manuellement.');
+  return result.points;
 }

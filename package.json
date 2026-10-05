@@ -12,7 +12,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -27,6 +28,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
-  "engines": { "node": ">=22.13.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "private": true
 }

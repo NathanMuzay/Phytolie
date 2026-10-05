@@ -1,12 +1,14 @@
 import { createServer } from 'node:http';
 import { openAccounts, HttpError } from './server/accounts.mjs';
 import { resolve } from 'node:path';
-import { mapSuggestions } from './src/identification.mjs';
+import { identifyImage, IdentificationError } from './server/identification.mjs';
+import { detectDimensions, MeasurementError } from './server/measurement.mjs';
 
 const PORT = Number(process.env.API_PORT || 8787);
 const API_KEY = process.env.PLANT_ID_API_KEY;
 const accounts = openAccounts(process.env.FOLIA_DB_PATH || resolve('data/folia.sqlite'));
 const authAttempts = new Map();
+const measurementAttempts = new Map();
 const MAX_BODY = 12 * 1024 * 1024;
 
 function send(response, status, payload) {
@@ -57,6 +59,20 @@ const server = createServer(async (request, response) => {
       return send(response, error instanceof HttpError ? error.status : 500, { error: error instanceof HttpError ? error.message : 'Erreur du serveur. Réessayez.' });
     }
   }
+  if (request.method === 'POST' && request.url === '/measure') {
+    try {
+      const now = Date.now();
+      for (const [key, value] of measurementAttempts) if (value.until <= now) measurementAttempts.delete(key);
+      const key = request.socket.remoteAddress || 'unknown';
+      const attempts = measurementAttempts.get(key) || { count: 0, until: now + 15 * 60000 };
+      measurementAttempts.set(key, attempts);
+      if (++attempts.count > 20) throw new HttpError(429, 'Trop de mesures. Réessayez dans 15 minutes ou placez les points manuellement.');
+      return send(response, 200, await detectDimensions(await readJson(request, MAX_BODY)));
+    } catch (error) {
+      return send(response, error instanceof HttpError || error instanceof MeasurementError ? error.status : 500,
+        { error: error instanceof HttpError || error instanceof MeasurementError ? error.message : 'Mesure impossible. Réessayez.' });
+    }
+  }
   if (request.method === 'GET' && request.url === '/health') {
     return API_KEY
       ? send(response, 200, { status: 'ok' })
@@ -65,37 +81,13 @@ const server = createServer(async (request, response) => {
   if (request.method !== 'POST' || request.url !== '/identify') return send(response, 404, { error: 'Route introuvable.' });
   if (!API_KEY) return send(response, 503, { error: 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.' });
 
-  let body = '';
-  request.on('data', chunk => {
-    body += chunk;
-    if (body.length > MAX_BODY) request.destroy();
-  });
-  request.on('error', () => send(response, 413, { error: 'La photo est trop volumineuse.' }));
-  request.on('end', async () => {
-    try {
-      const { image } = JSON.parse(body);
-      if (typeof image !== 'string' || image.length < 100) return send(response, 400, { error: 'Photo absente ou invalide.' });
-      const apiResponse = await fetch('https://api.plant.id/v3/identification?details=common_names,taxonomy,watering,description&language=fr', {
-        method: 'POST',
-        headers: { 'Api-Key': API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: [image] }),
-        signal: AbortSignal.timeout(45000),
-      });
-      if (!apiResponse.ok) {
-        const message = apiResponse.status === 401 ? 'Clé plant.id invalide.' : apiResponse.status === 429 ? 'Crédits plant.id épuisés.' : 'Le service plant.id a refusé la requête.';
-        return send(response, apiResponse.status, { error: message });
-      }
-      const result = await apiResponse.json();
-      if (result?.result?.is_plant?.binary === false) return send(response, 422, { error: 'Aucune plante n’a été détectée sur cette photo.' });
-      const suggestions = mapSuggestions(result);
-      if (!suggestions.length) return send(response, 422, { error: 'La plante n’a pas pu être reconnue. Essayez une feuille nette et la plante entière.' });
-      // Preserve the first result for older clients while exposing alternatives.
-      return send(response, 200, { ...suggestions[0], suggestions });
-    } catch (error) {
-      const timedOut = error?.name === 'TimeoutError';
-      return send(response, 502, { error: timedOut ? 'plant.id met trop de temps à répondre.' : 'Impossible de contacter plant.id.' });
-    }
-  });
+  try {
+    const input = await readJson(request, MAX_BODY);
+    return send(response, 200, await identifyImage(input?.image, { apiKey: API_KEY }));
+  } catch (error) {
+    const known = error instanceof IdentificationError || error instanceof HttpError;
+    return send(response, known ? error.status : 500, { error: known ? error.message : 'Identification impossible. Réessayez.' });
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {

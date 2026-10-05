@@ -1,8 +1,9 @@
+import { validMeasurement, type Measurement } from './measurement.ts';
 import { wateringPlan, type Irrigation } from './irrigation.ts';
 import type { City } from './weather.ts';
 export type Plant = {
   id: string; name: string; species: string; room: string; photo?: string;
-  height: number; pot: number; soil: string; temperature: number;
+  height: number; width?: number; measurement?: Measurement; pot: number; soil: string; temperature: number;
   interval: number; lastWatered: string | null; createdAt: string;
   repotDate: string; caretaker: string; history: string[];
   waterAmount?: number; wateringAdvice?: string;
@@ -37,6 +38,8 @@ export function parseGarden(raw: string): Garden {
   }
   if (value.city && (!Number.isFinite(value.city.id) || typeof value.city.name !== 'string' || !Number.isFinite(value.city.latitude) || !Number.isFinite(value.city.longitude))) throw new Error('Ville invalide');
   for (const p of value.plants) {
+    if (p.width != null && (!Number.isFinite(p.width) || p.width < 1 || p.width > 1000)) throw new Error('Largeur de plante invalide');
+    if (p.measurement != null && !validMeasurement(p.measurement)) throw new Error('Mesure photo invalide');
     const c = p.irrigation;
     if (c && (typeof c.automatic !== 'boolean' || !Number.isFinite(c.depth) || c.depth <= 0 || c.depth > 100 || !['plastic', 'terracotta'].includes(c.material) || !['yes', 'no', 'unknown'].includes(c.drainage) || !['standard', 'draining', 'retentive', 'bark'].includes(c.substrate) || !['indoor', 'outdoor'].includes(c.location) || !['shade', 'indirect', 'sun'].includes(c.exposure) || !['growing', 'rest'].includes(c.season) || (c.moisture != null && !['dry', 'moist'].includes(c.moisture)) || (c.checkedAt != null && !Number.isFinite(Date.parse(c.checkedAt))))) throw new Error('Paramètres d’arrosage invalides');
   }

@@ -1,0 +1,108 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { File } from 'expo-file-system';
+import { detectPhotoDimensions } from './plantApi';
+import { imageFrame, landmarkNames, measureDimensions, pointFromTouch, validLandmarks, type ImageSize, type LandmarkName, type Landmarks, type Measurement, type Point } from './measurement';
+
+const labels: Record<LandmarkName, string> = {
+  referenceStart: 'Début du repère', referenceEnd: 'Fin du repère', plantTop: 'Sommet de la plante', soilLevel: 'Niveau du terreau',
+  plantLeft: 'Feuillage : bord gauche', plantRight: 'Feuillage : bord droit', potLeft: 'Ouverture du pot : bord gauche', potRight: 'Ouverture du pot : bord droit',
+};
+function Action({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
+  return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .5 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
+}
+
+export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: string; disabled: boolean; onApply: (measurement: Measurement) => void; onBusy: (busy: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const [size, setSize] = useState<ImageSize | null>(null);
+  const [frame, setFrame] = useState<ImageSize>({ width: 0, height: 360 });
+  const [referenceCm, setReferenceCm] = useState('29.7');
+  const [referenceDescription, setReferenceDescription] = useState('Grand côté vertical d’une feuille A4');
+  const [points, setPoints] = useState<Partial<Landmarks>>({});
+  const [active, setActive] = useState<LandmarkName>('referenceStart');
+  const [method, setMethod] = useState<'vision' | 'guided'>('guided');
+  const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState('');
+  const mounted = useRef(true);
+  const inFlight = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    Image.getSize(photo, (width, height) => { if (mounted.current) setSize({ width, height }); }, () => { if (mounted.current) setMessage('Photo illisible. Choisissez une autre image.'); });
+    return () => { mounted.current = false; };
+  }, [photo]);
+  const length = Number(referenceCm.replace(',', '.'));
+  const canCalibrate = Number.isFinite(length) && length >= 1 && length <= 200;
+  let result: ReturnType<typeof measureDimensions> | null = null;
+  let validation = '';
+  if (size && validLandmarks(points)) {
+    try { result = measureDimensions(points, size, length); }
+    catch (error) { validation = error instanceof Error ? error.message : 'Vérifiez les points.'; }
+  }
+  const rect = size && frame.width ? imageFrame(size, frame) : null;
+  async function detect() {
+    if (!size || !canCalibrate || inFlight.current) return;
+    inFlight.current = true; setRunning(true); onBusy(true); setMessage('Recherche des points sur la photo…');
+    try {
+      const image = photo.startsWith('data:') ? photo : Platform.OS !== 'web' ? `data:${new File(photo).type || 'image/jpeg'};base64,${await new File(photo).base64()}` : '';
+      if (!image) throw new Error('Photo indisponible : choisissez-la à nouveau.');
+      const detected = await detectPhotoDimensions(image, size, length, referenceDescription);
+      if (mounted.current) { setPoints(detected); setMethod('vision'); setMessage('Points détectés. Vérifiez les huit positions avant d’appliquer les mesures.'); }
+    } catch (error) {
+      if (mounted.current) setMessage(error instanceof Error ? error.message : 'Analyse impossible. Placez les points manuellement.');
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) { setRunning(false); onBusy(false); }
+    }
+  }
+  function place(point: Point) {
+    setPoints(previous => ({ ...previous, [active]: point })); setMethod('guided'); setMessage('');
+    const index = landmarkNames.indexOf(active);
+    if (index < landmarkNames.length - 1) setActive(landmarkNames[index + 1]);
+  }
+  return <View style={styles.card}>
+    <Text style={styles.title}>Dimensions sur photo</Text>
+    <Text style={styles.body}>Photographiez la plante entière et son pot de face, avec une règle ou une feuille A4 à côté, à la même distance de l’appareil. Le terreau et les bords du pot doivent être visibles. Évitez le grand-angle et les photos inclinées.</Text>
+    <Action title={open ? 'Fermer la mesure' : 'Mesurer cette photo'} disabled={disabled || running} onPress={() => setOpen(value => !value)} />
+    {open && <>
+      <Text style={styles.label}>Repère visible et segment à mesurer</Text>
+      <TextInput accessibilityLabel="Description du repère" value={referenceDescription} editable={!disabled && !running} onChangeText={value => { setReferenceDescription(value); setPoints({}); setActive('referenceStart'); setMessage(''); }} maxLength={150} style={styles.input} />
+      <Text style={styles.label}>Longueur réelle du segment (cm)</Text>
+      <TextInput accessibilityLabel="Longueur du repère en centimètres" value={referenceCm} editable={!disabled && !running} onChangeText={setReferenceCm} keyboardType="decimal-pad" maxLength={6} style={styles.input} />
+      {!canCalibrate && <Text accessibilityRole="alert" style={styles.error}>Indiquez une longueur entre 1 et 200 cm.</Text>}
+      <Text style={styles.hint}>Une feuille A4 mesure 29,7 cm sur son grand côté. Sans repère de taille connue dans la photo, reprenez-la. Seule l’analyse IA envoie cette photo au serveur puis à OpenAI ; le placement manuel reste sur l’appareil.</Text>
+      <Action title={running ? 'Analyse en cours…' : 'Détecter automatiquement les points'} disabled={disabled || running || !size || !canCalibrate || !referenceDescription.trim()} onPress={() => void detect()} />
+      {!!message && <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text>}
+      <Text style={styles.label}>Vérifier ou placer les points</Text>
+      <Text style={styles.hint}>Choisissez un point ci-dessous, puis touchez sa position sur la photo. Après chaque placement, le point suivant est sélectionné. Hauteur : du terreau au sommet ; diamètre : ouverture du pot de culture, hors cache-pot.</Text>
+      <View style={styles.options}>{landmarkNames.map((key, index) => <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: active === key }} disabled={disabled || running} onPress={() => setActive(key)} style={[styles.option, active === key && styles.selected]}><Text style={styles.optionText}>{index + 1}. {labels[key]}{points[key] ? ' ✓' : ''}</Text></Pressable>)}</View>
+      <Text style={styles.label}>À placer : {labels[active]}</Text>
+      <View onLayout={event => setFrame({ width: event.nativeEvent.layout.width, height: 360 })} style={styles.photo}>
+        <Image source={{ uri: photo }} resizeMode="contain" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {rect && landmarkNames.map((key, index) => points[key] && <View key={key} style={[styles.dot, { left: rect.left + points[key]!.x * rect.width - 10, top: rect.top + points[key]!.y * rect.height - 10, backgroundColor: active === key ? '#AC461C' : '#245940' }]}><Text style={styles.dotText}>{index + 1}</Text></View>)}
+        </View>
+        <Pressable accessibilityLabel={`Placer : ${labels[active]}`} disabled={disabled || running || !size} style={StyleSheet.absoluteFill} onPress={event => { if (!size) return; const p = pointFromTouch(event.nativeEvent.locationX, event.nativeEvent.locationY, size, frame); if (p) place(p); }} />
+      </View>
+      <Action title="Recommencer les points" disabled={disabled || running} onPress={() => { setPoints({}); setActive('referenceStart'); setMessage(''); setMethod('guided'); }} />
+      {!!validation && <Text accessibilityRole="alert" style={styles.error}>{validation}</Text>}
+      {result && <Text style={styles.body}>Hauteur : ≈ {result.height} cm · largeur : ≈ {result.width} cm · diamètre du pot : ≈ {result.pot} cm.</Text>}
+      <Text style={styles.hint}>Estimation par rapport au repère, à vérifier : la perspective et les points peuvent fausser les valeurs. La profondeur intérieure du pot reste à saisir séparément.</Text>
+      <Action title="Appliquer les dimensions à la fiche" disabled={disabled || running || !result || !referenceDescription.trim()} onPress={() => {
+        if (!result) return;
+        onApply({ ...result, method, referenceCm: length, measuredAt: new Date().toISOString() });
+        setMessage('Dimensions appliquées. Enregistrez la fiche pour les conserver.');
+      }} />
+    </>}
+  </View>;
+}
+const styles = StyleSheet.create({
+  card: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E6EBDD', borderRadius: 22, padding: 20, gap: 14 },
+  title: { color: '#2A4734', fontSize: 20, fontWeight: '600' }, body: { color: '#64715F', fontSize: 15, lineHeight: 23 },
+  label: { color: '#3D573F', fontWeight: '600', fontSize: 13 }, hint: { color: '#64715F', fontSize: 12, lineHeight: 19 },
+  input: { borderWidth: 1, borderColor: '#DCE3D3', borderRadius: 12, padding: 12, color: '#233E2D', fontSize: 16 },
+  button: { backgroundColor: '#E8EFDF', borderRadius: 15, padding: 15, minHeight: 48 }, buttonText: { color: '#245940', textAlign: 'center', fontWeight: '600' },
+  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, option: { padding: 10, borderRadius: 10, backgroundColor: '#F7F8F2', borderWidth: 1, borderColor: '#DCE3D3' },
+  selected: { borderColor: '#245940', backgroundColor: '#DFEDD8' }, optionText: { color: '#245940', fontSize: 12 },
+  photo: { height: 360, backgroundColor: '#EEF1E9', overflow: 'hidden' }, dot: { position: 'absolute', width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#FFF' },
+  dotText: { color: '#FFF', fontSize: 11, fontWeight: '700' }, error: { color: '#A33827', lineHeight: 21 },
+});

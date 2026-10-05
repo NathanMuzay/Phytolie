@@ -1,20 +1,20 @@
-export type CareDefaults = { interval: number; soil: string };
+export type CareDefaults = { interval: number; soil: string; toleranceFraction: number | null };
 
 export function careDefaults(name: string): CareDefaults {
   const value = name.toLocaleLowerCase('fr-FR');
   if (/cactus|succulent|aloe|agave|crassula|echeveria|haworthia|sansevieria|dracaena trifasciata/.test(value)) {
-    return { interval: 14, soil: 'Substrat très drainant pour cactus et succulentes' };
+    return { toleranceFraction: 0.3, interval: 14, soil: 'Substrat très drainant pour cactus et succulentes' };
   }
   if (/foug[eè]re|fern|calathea|calath[eé]a|maranta|papyrus|fittonia/.test(value)) {
-    return { interval: 4, soil: 'Terreau riche et drainant, gardé légèrement humide' };
+    return { toleranceFraction: 0.1, interval: 4, soil: 'Terreau riche et drainant, gardé légèrement humide' };
   }
   if (/orchid|orchid[eé]e|phalaenopsis/.test(value)) {
-    return { interval: 7, soil: "Écorces aérées pour orchidées" };
+    return { toleranceFraction: 0.15, interval: 7, soil: "Écorces aérées pour orchidées" };
   }
   if (/monstera|philodendron|pothos|epipremnum|ficus|spathiphyllum|pilea/.test(value)) {
-    return { interval: 7, soil: 'Terreau pour plantes vertes, aéré et drainant' };
+    return { toleranceFraction: 0.2, interval: 7, soil: 'Terreau pour plantes vertes, aéré et drainant' };
   }
-  return { interval: 7, soil: 'Terreau universel drainant — à confirmer selon l’espèce' };
+  return { toleranceFraction: null, interval: 7, soil: 'Terreau universel drainant — à confirmer selon l’espèce' };
 }
 
 export function estimateWaterAmount(potDiameterCm: number, name = ''): number {

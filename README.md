@@ -95,13 +95,50 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 - Message « API non configurée » : vérifiez que `.env` existe, puis redémarrez Expo après toute modification du fichier.
 - Scan bloqué : ouvrez `http://<IP-de-votre-ordinateur>:8787/health` depuis le navigateur du téléphone. Une réponse `{"status":"ok"}` confirme que le serveur est joignable. Le scan vérifie cette connexion pendant 5 secondes maximum avant l’envoi de la photo. Après un changement de réseau, mettez à jour `EXPO_PUBLIC_API_URL` et redémarrez Expo.
 - Message « Impossible de contacter plant.id » : vérifiez que `npm run api` fonctionne, que `EXPO_PUBLIC_API_URL` contient l’IP de l’ordinateur et que le port `8787` est accessible depuis le téléphone. Le tunnel Expo ne rend pas automatiquement ce serveur API accessible.
-- Erreur 401 : la clé plant.id est incorrecte. Erreur 429 : les crédits plant.id sont épuisés.
+- Erreur 401 : la clé plant.id est incorrecte. Erreur 402 : crédits insuffisants. Erreur 403 : accès refusé. Erreur 429 : limite atteinte, vérifiez les quotas et le solde Kindwise.
+- Photo refusée : le serveur convertit les images JPEG, PNG, WebP et AVIF en JPEG avant identification. Limites : 8 Mo et 40 mégapixels en entrée ; image redimensionnée à 1 400 pixels maximum par côté. Une image corrompue ou non décodable affiche une erreur explicite. Redémarrez le serveur après une mise à jour.
 - Cache Metro : `npx expo start --clear`.
 - Version incompatible dans Expo Go : installez une version Android compatible avec le SDK 57 depuis [expo.dev/go](https://expo.dev/go).
 - Notifications absentes : autorisez-les dans Android et dans **Mon espace**. Testez sur un appareil Android ; l’économie de batterie peut retarder leur livraison.
 
+## Mesurer les dimensions sur photo
+
+Dans « Ajouter une plante » ou « Modifier la fiche », ajoutez une photo, puis ouvrez **Dimensions sur photo → Mesurer cette photo**.
+
+1. Photographiez de face la plante entière et son pot de culture, avec une règle ou une feuille A4 placée à côté **à la même distance de l’appareil**. Le niveau du terreau et l’ouverture du pot doivent être visibles. Évitez les perspectives fortes, le grand-angle, les plantes tronquées et les cache-pots masquant le pot intérieur.
+2. Décrivez le segment de référence et sa longueur réelle : par défaut, le grand côté vertical d’une feuille A4 (29,7 cm).
+3. Appuyez sur **Détecter automatiquement les points**. Le serveur utilise l’API de vision OpenAI et renvoie huit points normalisés. La hauteur du terreau au sommet, la largeur du feuillage et le diamètre de l’ouverture du pot sont ensuite calculés par rapport au repère.
+4. Vérifiez les points numérotés : choisissez un point puis touchez la photo pour le corriger. Vous pouvez aussi placer les huit points directement, **sans clé API, sans réseau et sans analyse IA**.
+5. Appuyez sur **Appliquer les dimensions à la fiche**, puis enregistrez la plante. Les valeurs restent modifiables ; leur origine et leur date sont conservées en mode local et en mode compte. Modifier une dimension manuellement retire l’attribution à la mesure photo.
+
+Pour la détection automatique, ajoutez ces paramètres au `.env` du serveur et redémarrez `npm run api` :
+
+```dotenv
+OPENAI_API_KEY=votre_cle_openai
+OPENAI_VISION_MODEL=gpt-4.1
+```
+
+La clé reste sur le serveur, sans préfixe `EXPO_PUBLIC_`. Les appels à ce service peuvent être facturés par le fournisseur. L’identification plant.id conserve sa propre clé ; la route de mesure `/measure` fonctionne indépendamment de plant.id. Elle accepte JPEG, PNG et WebP, avec une limite de corps JSON de 12 Mo, et limite les demandes à 20 par adresse réseau sur 15 minutes. Comme le proxy d’identification, cette route est prévue pour un serveur de développement privé ; un déploiement public demande une authentification et des quotas adaptés.
+
+L’image n’est envoyée à OpenAI qu’en appuyant sur le bouton de détection. La requête utilise `store: false` ; cela ne constitue pas une garantie de rétention nulle chez le fournisseur. Les points sont des propositions, à contrôler avant application. La géométrie tient compte du ratio de la photo et des bandes autour de l’image affichée. Un repère trop petit ou des dimensions incohérentes sont refusés. Une vue unique ne corrige pas la perspective, ne mesure pas la profondeur intérieure utile du pot et ne garantit pas une précision métrique : la profondeur reste saisie manuellement. Une photo non exploitable ou un service indisponible laisse le placement manuel accessible.
+
+L’intégration suit la documentation officielle [Images et vision](https://developers.openai.com/api/docs/guides/images-vision) et [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). Les tests simulent le fournisseur : ils vérifient la calibration et les erreurs, pas la précision botanique ou visuelle du modèle.
+
+## Marge de retard d’arrosage
+
+La fiche et l’écran « À faire » affichent une **marge indicative en heures**, une date limite indicative et l’état du retard. Le calcul utilise l’intervalle contextualisé (pot, substrat, température, exposition, cycle), multiplié par un coefficient de profil : 10 % pour les plantes à besoin d’humidité fréquent, 15 % pour les orchidées reconnues, 20 % pour les plantes vertes reconnues, 30 % pour les succulentes reconnues. Le résultat est arrondi à l’heure inférieure et plafonné à 72 heures. Ces coefficients sont des heuristiques produit non validées expérimentalement.
+
+- Un dernier arrosage connu, le calcul automatique, un profil reconnu et un drainage confirmé sont nécessaires. Les anciennes fiches manuelles restent compatibles, sans marge inventée.
+- À partir de 35 °C, aucune marge supplémentaire n’est proposée. À 5 °C ou moins, le calcul est indisponible.
+- Une observation fraîche « terreau sec » annule la marge et demande une vérification immédiate. « Terreau humide » reporte la vérification selon la règle existante, sans prédire une tolérance à la sécheresse. Ces observations expirent au bout de 24 heures.
+- Une confirmation d’arrosage recalcule l’échéance et la marge. Les rappels quotidiens commencent toujours à l’échéance normale : la marge ne les retarde pas et n’augmente jamais la dose.
+
+La marge aide à prioriser les vérifications ; elle ne prédit ni la survie ni l’état réel de la plante. Vérifiez le terreau et les signes de stress.
+
 ## Ce qui fonctionne
 
+- Mesure calibrée de la hauteur, de la largeur et du diamètre du pot, avec détection IA et correction des points.
+- Marge de retard d’arrosage indicative, contextualisée et affichée dans les fiches et tâches.
 - Reconnaissance par photo avec plant.id et jusqu’à cinq propositions classées par confiance.
 - À partir de 80 % de confiance, la première proposition préremplit la fiche ; sinon, choix explicite ou saisie manuelle. Toutes les propositions restent sélectionnables.
 - Fiche d’entretien du résultat choisi : espèce, famille et description lorsqu’elles sont disponibles, terreau, fréquence et dose indicatives. Les informations de plant.id sont distinguées des estimations Folia.
@@ -134,7 +171,7 @@ Sans capteur, l’application ne connaît pas l’humidité réelle : une observ
 
 La météo provient d’[Open-Meteo](https://open-meteo.com/) et la recherche de villes de son [API de géocodage](https://open-meteo.com/en/docs/geocoding-api). La ville choisie est sauvegardée ; la température est rechargée à l’ouverture, au retour au premier plan et chaque heure. Une mesure de plus de 3 h n’est plus utilisée. Sans connexion, la température saisie reste la référence. Les rappels sont recalculés lors de l’actualisation ; l’application fermée conserve la dernière programmation. Les principes de vérification du substrat sont cohérents avec les [conseils d’arrosage de la RHS](https://www.rhs.org.uk/garden-jobs/watering) ; cette source ne valide pas les coefficients numériques de Folia.
 
-Le scan de pièce, la compatibilité avant achat, l’estimation visuelle des dimensions, la marge de retard et le diagnostic de maladies restent à développer. Une photo sans objet de taille connue ne permet pas de mesurer correctement une plante.
+Le scan de pièce, la compatibilité avant achat et le diagnostic de maladies restent à développer. La mesure des dimensions nécessite un repère de taille connue dans la photo ; la marge de retard est une estimation indicative, pas une garantie de survie.
 
 Les notifications sont regroupées par jour et programmées pour les **30 prochains jours calendaires**, puis renouvelées à chaque ouverture, retour au premier plan, changement d’heure de rappel et modification du carnet. Une heure déjà passée commence au lendemain. L’heure suit le fuseau local au moment de la programmation : rouvrez l’application après un voyage. Au passage à l’heure d’été, une heure inexistante est décalée vers l’heure valide suivante, puis l’heure habituelle reprend le lendemain. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. La personne référente est une simple note ; aucune invitation ni délégation distante n’est envoyée.
 
@@ -152,6 +189,10 @@ src/reminders.ts        Regroupement, remplacement et nettoyage des relances
 src/plantApi.ts         Appel du serveur d’identification depuis le téléphone
 src/care.ts             Valeurs d’entretien et estimation d’eau
 src/irrigation.ts       Calcul contextualisé et observations d’humidité
+src/tolerance.ts        Marge de retard indicative et états d’urgence
+src/measurement.ts      Géométrie calibrée, coordonnées et validation
+src/DimensionMeasure.tsx Mesure photo et correction visuelle des points
+server/measurement.mjs  Analyse des repères par vision, clé côté serveur
 src/weather.ts          Géocodage et température extérieure Open-Meteo
 server.mjs              API des comptes et proxy vers plant.id
 server/accounts.mjs     SQLite, mots de passe, sessions et collections privées
