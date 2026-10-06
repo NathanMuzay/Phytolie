@@ -1,4 +1,4 @@
-import { palette, fonts, useReadableStyles } from './theme';
+import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { File } from 'expo-file-system';
@@ -10,11 +10,13 @@ const labels: Record<LandmarkName, string> = {
   plantLeft: 'Feuillage : bord gauche', plantRight: 'Feuillage : bord droit', potLeft: 'Ouverture du pot : bord gauche', potRight: 'Ouverture du pot : bord droit',
 };
 function Action({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
+  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .5 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
 }
 
 export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: string; disabled: boolean; onApply: (measurement: Measurement) => void; onBusy: (busy: boolean) => void }) {
+  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [open, setOpen] = useState(false);
   const [size, setSize] = useState<ImageSize | null>(null);
@@ -64,7 +66,7 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: 
   }
   return <View style={styles.card}>
     <Text style={styles.title}>Dimensions sur photo</Text>
-    <Text style={styles.body}>Photographiez la plante entière et son pot de face, avec une règle ou une feuille A4 à côté, à la même distance de l’appareil. Le terreau et les bords du pot doivent être visibles. Évitez le grand-angle et les photos inclinées.</Text>
+    <Text style={styles.body}>Photo de face : plante entière, pot et repère connu (règle ou A4) à la même distance. Terreau et bords du pot visibles.</Text>
     <Action title={open ? 'Fermer la mesure' : 'Mesurer cette photo'} disabled={disabled || running} onPress={() => setOpen(value => !value)} />
     {open && <>
       <Text style={styles.label}>Repère visible et segment à mesurer</Text>
@@ -72,7 +74,7 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: 
       <Text style={styles.label}>Longueur réelle du segment (cm)</Text>
       <TextInput accessibilityLabel="Longueur du repère en centimètres" value={referenceCm} editable={!disabled && !running} onChangeText={setReferenceCm} keyboardType="decimal-pad" maxLength={6} style={styles.input} />
       {!canCalibrate && <Text accessibilityRole="alert" style={styles.error}>Indiquez une longueur entre 1 et 200 cm.</Text>}
-      <Text style={styles.hint}>Une feuille A4 mesure 29,7 cm sur son grand côté. Sans repère de taille connue dans la photo, reprenez-la. Seule l’analyse IA envoie cette photo au serveur puis à OpenAI ; le placement manuel reste sur l’appareil.</Text>
+      <Text style={styles.hint}>Grand côté A4 : 29,7 cm. Repère connu obligatoire. Analyse IA : photo transmise à OpenAI via le serveur. Placement manuel : local.</Text>
       <Action title={running ? 'Analyse en cours…' : 'Détecter automatiquement les points'} disabled={disabled || running || !size || !canCalibrate || !referenceDescription.trim()} onPress={() => void detect()} />
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text>}
       <Text style={styles.label}>Vérifier ou placer les points</Text>

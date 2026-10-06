@@ -1,30 +1,38 @@
 import { useMemo } from 'react';
 import { Platform, useWindowDimensions, type TextStyle, type ViewStyle, type ImageStyle } from 'react-native';
+import { useAccessibility } from './AccessibilityProvider';
+import { readableTextMetrics } from './accessibility';
 
-// Botanical palette shared by the collection, account and photo tools.
-export const palette = {
-  paper: '#F7F3E8', surface: '#FFFCF5', olive: '#666744',
-  ink: '#343C2B', muted: '#73745D', line: '#D8D4BF',
-  sage: '#E9E9D8', forest: '#344636', terracotta: '#A75E43',
-};
+import { palette, contrastPalette } from './appearance';
+export { palette } from './appearance';
+export function useThemePalette() {
+  const { settings } = useAccessibility();
+  return settings.highContrast ? contrastPalette : palette;
+}
 export const fonts = {
   editorial: Platform.select({ web: 'Georgia, serif', ios: 'Georgia', default: 'serif' }),
   annotation: Platform.select({ web: 'monospace', ios: 'Menlo', default: 'monospace' }),
 };
 export const botanicalPhoto = require('../assets/botanical/monstera.jpg');
 
-// Enlarge desktop text without changing the mobile layout. Recompute on resize.
 export function useReadableStyles<T extends Record<string, ViewStyle | TextStyle | ImageStyle>>(base: T): T {
   const { width } = useWindowDimensions();
   const desktop = Platform.OS === 'web' && width >= 860;
-  return useMemo(() => {
-    if (!desktop) return base;
-    return Object.fromEntries(Object.entries(base).map(([key, original]) => {
-      const style = { ...original } as TextStyle;
-      if (style.fontSize == null && (style.color != null || style.fontWeight != null || style.fontFamily != null)) style.fontSize = 14;
-      if (style.fontSize != null) style.fontSize = Math.max(14, Math.round(style.fontSize * (style.fontSize >= 38 ? 1.08 : 1.2)));
-      if (style.lineHeight != null) style.lineHeight = Math.round(style.lineHeight * 1.2);
-      return [key, style];
-    })) as T;
-  }, [base, desktop]);
+  const { settings } = useAccessibility();
+  return useMemo(() => Object.fromEntries(Object.entries(base).map(([key, original]) => {
+    const style = { ...original } as TextStyle;
+    if (settings.highContrast) {
+      for (const property of Object.keys(style)) {
+        const value = (style as Record<string, unknown>)[property];
+        const colorKey = Object.keys(palette).find(name => palette[name as keyof typeof palette] === value) as keyof typeof palette | undefined;
+        if (colorKey) (style as Record<string, unknown>)[property] = contrastPalette[colorKey];
+      }
+    }
+    if (style.fontSize == null && (style.color != null || style.fontWeight != null || style.fontFamily != null)) style.fontSize = 14;
+    if (style.fontSize != null) {
+      Object.assign(style, readableTextMetrics(style.fontSize, style.lineHeight, width, desktop, settings));
+    }
+    if (settings.simpleFont && style.fontFamily) style.fontFamily = Platform.select({ web: 'Arial, sans-serif', ios: 'System', default: 'sans-serif' });
+    return [key, style];
+  })) as T, [base, desktop, width, settings]);
 }

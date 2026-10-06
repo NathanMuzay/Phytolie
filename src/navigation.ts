@@ -1,5 +1,5 @@
-export type Page = 'home' | 'garden' | 'tasks' | 'settings' | 'caretaker' | 'account' | 'new' | `plant/${string}` | `edit/${string}`;
-const paths: Record<string, Page> = { '/ma-maison': 'home', '/': 'garden', '/a-faire': 'tasks', '/mon-espace': 'settings', '/personne-de-confiance': 'caretaker', '/compte': 'account', '/plantes/ajouter': 'new' };
+export type Page = 'home' | 'garden' | 'tasks' | 'settings' | 'preferences' | 'caretaker' | 'account' | 'new' | `plant/${string}` | `edit/${string}`;
+const paths: Record<string, Page> = { '/parametres': 'preferences', '/ma-maison': 'home', '/': 'garden', '/a-faire': 'tasks', '/mon-espace': 'settings', '/personne-de-confiance': 'caretaker', '/compte': 'account', '/plantes/ajouter': 'new' };
 export function pageFromHash(hash: string): Page {
   const path = hash.replace(/^#/, '') || '/';
   if (paths[path]) return paths[path];
