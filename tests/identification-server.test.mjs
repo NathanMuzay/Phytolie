@@ -36,6 +36,7 @@ test('Proxy sends converted AVIF as JPEG and preserves identification response',
   const input = (await fixture('avif')).toString('base64');
   const result = await identifyImage(input, { apiKey: 'secret', fetchImpl: async (url, options) => {
     assert.match(url, /api\.plant\.id\/v3\/identification/);
+    assert.ok(new URL(url).searchParams.get('details').split(',').includes('image'));
     assert.equal(options.headers['Api-Key'], 'secret');
     const photo = JSON.parse(options.body).images[0];
     assert.equal((await sharp(Buffer.from(photo, 'base64')).metadata()).format, 'jpeg');

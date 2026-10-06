@@ -101,6 +101,12 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 - Version incompatible dans Expo Go : installez une version Android compatible avec le SDK 57 depuis [expo.dev/go](https://expo.dev/go).
 - Notifications absentes : autorisez-les dans Android et dans **Mon espace**. Testez sur un appareil Android ; l’économie de batterie peut retarder leur livraison.
 
+## Choisir le visuel d’une plante
+
+Dans « Ajouter une plante » ou « Modifier la fiche », choisissez **Ma photo** ou **Visuel botanique**. Après un scan, une identification avec au moins 80 % de confiance sélectionne automatiquement le visuel botanique. En dessous de ce seuil, choisissez une proposition pour déclencher le même comportement. Les illustrations locales couvrent Monstera deliciosa, Aloe vera, Ficus elastica et Nephrolepis exaltata ; pour les autres espèces, plant.id fournit une photo représentative avec son attribution et sa licence. En l’absence de photo de référence, votre photo personnelle reste affichée (ou une composition décorative si aucune photo n’est disponible). Le visuel suit l’espèce renseignée et le choix est sauvegardé avec la fiche.
+
+La photo personnelle reste conservée lorsque vous affichez un visuel botanique. Choisissez **Photo entière** pour éviter de couper les feuilles ou **Remplir le cadre** pour un affichage recadré. Le carnet et les fiches partagent un cadre adaptatif au format 4:3. L’identification et les mesures utilisent uniquement votre photo originale. La photo de référence nécessite une connexion ; changer manuellement l’espèce efface la référence de l’ancienne espèce. Redémarrez `npm run api` après cette mise à jour pour obtenir les images dans les réponses de scan.
+
 ## Mesurer les dimensions sur photo
 
 Dans « Ajouter une plante » ou « Modifier la fiche », ajoutez une photo, puis ouvrez **Dimensions sur photo → Mesurer cette photo**.
@@ -224,3 +230,31 @@ L’export Android vérifie la génération du bundle JavaScript ; il ne produit
 Pour une compilation native locale avec le SDK Android et Java configurés : `npx expo run:android`. Cette commande génère le dossier Android et compile une application de développement ; le premier lancement télécharge les dépendances Gradle nécessaires.
 
 Documentation : [plant.id](https://www.kindwise.com/plant-id), [API v3 plant.id](https://documenter.getpostman.com/view/24599534/2s93z5A4v2), [photos Expo](https://docs.expo.dev/versions/latest/sdk/imagepicker/), [notifications locales Expo](https://docs.expo.dev/versions/latest/sdk/notifications/).
+
+### Navigation web et personne de confiance
+
+Sur ordinateur, les textes sont agrandis à partir de 860 px de largeur. Chaque écran possède une adresse : `#/`, `#/a-faire`, `#/mon-espace`, `#/personne-de-confiance`, `#/compte`, `#/plantes/ajouter`, `#/plantes/<id>` et `#/plantes/<id>/modifier`. Les boutons précédent/suivant du navigateur et le rechargement conservent la page demandée. Hors des champs de saisie, **Ctrl+Z** (ou **Cmd+Z**) revient à l’accueil ; dans un champ, il continue d’annuler la saisie.
+
+La page **Personne de confiance** permet d’enregistrer un nom, un téléphone, un e-mail et des consignes pour toute la collection. Ces informations suivent la sauvegarde locale ou celle du compte connecté et sont accessibles depuis les fiches plantes. Elles n’envoient aucun message et ne donnent pas accès au compte.
+
+### Plan 2D du logement et exposition
+
+Ouvrez **Ma maison** (`#/ma-maison`) :
+
+1. Renseignez les dimensions totales en mètres, l’étage, le mois étudié et l’orientation du haut du plan (0° = nord, 90° = est). Ajoutez la latitude, ou reprenez celle de la ville choisie dans **Mon espace**.
+2. Ajoutez des pièces rectangulaires et un jardin en touchant le plan, puis ajustez leur nom, position et dimensions. Les zones doivent rester dans le plan sans se chevaucher.
+3. Ajoutez les fenêtres extérieures sur le mur approprié, leur largeur, leur position et leur hauteur au-dessus du sol. Renseignez voilages et obstacles extérieurs ; pour le jardin, choisissez l’ombrage.
+4. Sélectionnez une plante et placez son pin sur le plan, ou saisissez ses coordonnées. Indiquez la hauteur du feuillage.
+5. Cliquez sur **Enregistrer le plan et les emplacements**. Le plan et les pins suivent la sauvegarde locale ou le compte ; les pièces, intérieur/extérieur et expositions calculables sont mis à jour ensemble. Déplacer ou supprimer une zone peut retirer les pins devenus invalides. Retirer un pin conserve les derniers paramètres d’entretien, qui restent modifiables dans la fiche.
+
+Un plan **JPEG, PNG ou WebP** (environ 3 Mo maximum) peut être importé en fond ; il est ajusté aux dimensions saisies, puis doit être retracé. Cette version ne reconnaît pas automatiquement les murs et n’importe pas directement les PDF : exportez la page en image. Un seul niveau est représenté par plan.
+
+Le placement est également proposé pendant l’ajout ou la modification d’une plante. Sa fiche affiche ensuite l’estimation et ses explications. Les champs d’entretien restent modifiables ; enregistrer à nouveau la maison recalcule les paramètres des plantes placées.
+
+Le calcul solaire simplifié échantillonne toutes les 15 minutes une journée représentative (le 21 du mois choisi), en heures solaires. Les rayons passent uniquement par les fenêtres déclarées dans la pièce de la plante et tiennent compte de la hauteur du feuillage. Les voilages bloquent le soleil direct dans le modèle ; l’ombrage partiel est un facteur forfaitaire. La lumière diffuse est un indice basé sur la surface vitrée, la distance et les filtres déclarés, pas une mesure en lux. Météo, reflets, mobilier, portes ouvertes et géométrie des obstacles extérieurs ne sont pas simulés. L’étage n’est pas utilisé pour inventer une correction de lumière.
+
+Le **score de compatibilité lumière /100** est une heuristique explicable, pas une probabilité de survie. La confiance reste faible ou moyenne. Sans latitude ou sans fenêtre renseignée dans une pièce, aucun score solaire n’est donné. Les profils initiaux couvrent Monstera, Phalaenopsis, Aloe, Echeveria, Anthurium et Ficus benjamina ; pour une autre espèce, le besoin peut être choisi manuellement. La résistance au gel et les autres exigences d’une plante de jardin ne font pas partie de ce score.
+
+Sources des profils : [Monstera — RHS](https://www.rhs.org.uk/plants/swiss-cheese-plants/how-to-grow-swiss-cheese-plants), [Phalaenopsis — RHS](https://www.rhs.org.uk/plants/12596/phalaenopsis/details), [Plantes pour pièces ensoleillées — RHS](https://www.rhs.org.uk/plants/types/houseplants/houseplants-for-sunny-rooms).
+
+Lors de l’import de la collection locale vers un compte, le plan local est aussi repris si le compte n’en possède pas. Si les plans diffèrent, le plan du compte reste conservé et les nouvelles plantes importées doivent être replacées ; la copie locale reste intacte.

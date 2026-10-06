@@ -59,3 +59,16 @@ test('Urgency ordering puts oldest deadlines first without mutating the collecti
   assert.deepEqual(sortPlantsByUrgency(original).map(p => p.id), ['overdue', '1', 'later']);
   assert.deepEqual(original.map(p => p.id), ['later', '1', 'overdue']);
 });
+
+test('Trusted contact persists with the garden; older collections remain valid', () => {
+  const garden = { plants: [plant], reminders: false, caretaker: { name: 'Marie Dupont', phone: '+33 6 12 34 56 78', email: 'marie@example.fr', notes: 'La clé est chez le voisin.' } };
+  assert.deepEqual(parseGarden(JSON.stringify(garden)), garden);
+  assert.deepEqual(parseGarden(JSON.stringify({ plants: [], reminders: false })), { plants: [], reminders: false });
+  assert.equal(parseGarden(JSON.stringify({ ...garden, caretaker: undefined })).caretaker, undefined);
+});
+test('Invalid trusted contacts are rejected before local or account persistence', () => {
+  const contact = { name: 'Marie', phone: '', email: '', notes: '' };
+  for (const caretaker of [{ ...contact, name: ' ' }, { ...contact, phone: 123 }, { ...contact, email: 'invalid' }, { ...contact, notes: 'a'.repeat(2001) }, []]) {
+    assert.throws(() => parseGarden(JSON.stringify({ plants: [], reminders: false, caretaker })), /Personne de confiance invalide/);
+  }
+});

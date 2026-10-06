@@ -1,8 +1,13 @@
+import { validateHome, validPosition, type HomePlan, type PlantPosition } from './home.ts';
 import { validMeasurement, type Measurement } from './measurement.ts';
 import { wateringPlan, type Irrigation } from './irrigation.ts';
 import type { City } from './weather.ts';
+import { validBotanicalImage, type BotanicalImage, type PhotoMode, type PhotoFit } from './botanical.ts';
 export type Plant = {
   id: string; name: string; species: string; room: string; photo?: string;
+  position?: PlantPosition;
+  photoMode?: PhotoMode; photoFit?: PhotoFit;
+  botanicalImage?: BotanicalImage;
   height: number; width?: number; measurement?: Measurement; pot: number; soil: string; temperature: number;
   interval: number; lastWatered: string | null; createdAt: string;
   repotDate: string; caretaker: string; history: string[];
@@ -11,7 +16,8 @@ export type Plant = {
   family?: string; description?: string;
   identificationConfidence?: number; identificationSource?: string;
 };
-export type Garden = { plants: Plant[]; reminders: boolean; reminderTime?: string; city?: City };
+export type Caretaker = { name: string; phone: string; email: string; notes: string };
+export type Garden = { home?: HomePlan; caretaker?: Caretaker; plants: Plant[]; reminders: boolean; reminderTime?: string; city?: City };
 export const STORAGE_KEY = 'folia.garden.v1';
 export const DAY = 86400000;
 export function addDays(date: Date, days: number): Date {
@@ -32,7 +38,19 @@ export function parseGarden(raw: string): Garden {
   const value = JSON.parse(raw);
   if (!value || !Array.isArray(value.plants) || typeof value.reminders !== 'boolean') throw new Error('Sauvegarde invalide');
   if (value.reminderTime != null && !isReminderTime(value.reminderTime)) throw new Error('Heure de rappel invalide');
+  if (value.home != null) validateHome(value.home);
+  if (value.caretaker != null) {
+    const contact = value.caretaker;
+    if (!contact || typeof contact !== 'object' || Array.isArray(contact) ||
+      !['name', 'phone', 'email', 'notes'].every(key => typeof contact[key] === 'string') ||
+      !contact.name.trim() || contact.name.length > 100 || contact.phone.length > 40 || contact.email.length > 254 || contact.notes.length > 2000 ||
+      (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))) throw new Error('Personne de confiance invalide');
+  }
   for (const p of value.plants) {
+    if (p.position != null && !validPosition(p.position, value.home)) throw new Error('Emplacement de plante invalide');
+    if (p.photoMode != null && !['personal', 'botanical'].includes(p.photoMode)) throw new Error('Source du visuel invalide');
+    if (p.photoFit != null && !['contain', 'cover'].includes(p.photoFit)) throw new Error('Cadrage du visuel invalide');
+    if (p.botanicalImage != null && !validBotanicalImage(p.botanicalImage)) throw new Error('Image botanique invalide');
     if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || typeof p.species !== 'string' || typeof p.room !== 'string' || typeof p.soil !== 'string' || typeof p.caretaker !== 'string' || !Number.isFinite(p.interval) || p.interval < 1 || p.interval > 90 || !Number.isFinite(p.height) || !Number.isFinite(p.pot) || !Number.isFinite(p.temperature) || !Number.isFinite(Date.parse(p.createdAt)) || !Number.isFinite(Date.parse(p.repotDate)) || (p.lastWatered !== null && !Number.isFinite(Date.parse(p.lastWatered))) || !Array.isArray(p.history) || p.history.some((d: unknown) => typeof d !== 'string' || !Number.isFinite(Date.parse(d)))) throw new Error('Fiche invalide');
     if ((p.waterAmount != null && (!Number.isFinite(p.waterAmount) || p.waterAmount < 0 || p.waterAmount > 5000)) || (p.identificationConfidence != null && (!Number.isFinite(p.identificationConfidence) || p.identificationConfidence < 0 || p.identificationConfidence > 1))) throw new Error('Données d’identification invalides');
   }

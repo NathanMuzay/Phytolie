@@ -1,4 +1,4 @@
-import { palette, fonts } from './theme';
+import { palette, fonts, useReadableStyles } from './theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { File } from 'expo-file-system';
@@ -10,10 +10,12 @@ const labels: Record<LandmarkName, string> = {
   plantLeft: 'Feuillage : bord gauche', plantRight: 'Feuillage : bord droit', potLeft: 'Ouverture du pot : bord gauche', potRight: 'Ouverture du pot : bord droit',
 };
 function Action({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
+  const styles = useReadableStyles(baseStyles);
   return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .5 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
 }
 
 export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: string; disabled: boolean; onApply: (measurement: Measurement) => void; onBusy: (busy: boolean) => void }) {
+  const styles = useReadableStyles(baseStyles);
   const [open, setOpen] = useState(false);
   const [size, setSize] = useState<ImageSize | null>(null);
   const [frame, setFrame] = useState<ImageSize>({ width: 0, height: 360 });
@@ -96,7 +98,7 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: 
     </>}
   </View>;
 }
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: 2, padding: 20, gap: 14 },
   title: { color: palette.ink, fontFamily: fonts.editorial, fontSize: 26, fontWeight: '400' }, body: { color: palette.muted, fontSize: 15, lineHeight: 23 },
   label: { color: palette.olive, fontWeight: '600', fontSize: 13 }, hint: { color: palette.muted, fontSize: 12, lineHeight: 19 },

@@ -1,8 +1,9 @@
-import { palette, fonts } from './theme';
+import { palette, fonts, useReadableStyles } from './theme';
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { authenticate, type AccountSession } from './accountApi';
 export function AccountScreen({ onConnected, onCancel }: { onConnected: (session: AccountSession) => void; onCancel: () => void }) {
+  const styles = useReadableStyles(baseStyles);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
@@ -28,4 +29,4 @@ export function AccountScreen({ onConnected, onCancel }: { onConnected: (session
     <Text style={styles.text}>La connexion dure jusqu’à la fermeture de l’application, au maximum 24 h. Le mot de passe n’est pas enregistré sur cet appareil. Cette version ne propose pas encore de récupération par e-mail.</Text>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
-const styles = StyleSheet.create({ page: { flex: 1, backgroundColor: palette.paper }, content: { padding: 24, paddingTop: 48, gap: 20, maxWidth: 620, width: '100%', alignSelf: 'center' }, brand: { fontFamily: fonts.editorial, fontSize: 54, fontWeight: '400', color: palette.olive }, title: { fontFamily: fonts.editorial, fontSize: 38, fontWeight: '400', color: palette.ink }, text: { fontSize: 15, lineHeight: 23, color: palette.muted }, label: { fontWeight: '600', color: palette.olive }, input: { backgroundColor: palette.surface, padding: 14, borderRadius: 2, borderWidth: 1, borderColor: palette.line, color: palette.ink, fontSize: 16 }, button: { backgroundColor: palette.olive, borderRadius: 2, padding: 16, alignItems: 'center' }, buttonText: { color: palette.surface, fontWeight: '600' }, link: { color: palette.olive, paddingVertical: 12 }, error: { color: '#A33827', lineHeight: 22 } });
+const baseStyles = StyleSheet.create({ page: { flex: 1, backgroundColor: palette.paper }, content: { padding: 24, paddingTop: 48, gap: 20, maxWidth: 620, width: '100%', alignSelf: 'center' }, brand: { fontFamily: fonts.editorial, fontSize: 54, fontWeight: '400', color: palette.olive }, title: { fontFamily: fonts.editorial, fontSize: 38, fontWeight: '400', color: palette.ink }, text: { fontSize: 15, lineHeight: 23, color: palette.muted }, label: { fontWeight: '600', color: palette.olive }, input: { backgroundColor: palette.surface, padding: 14, borderRadius: 2, borderWidth: 1, borderColor: palette.line, color: palette.ink, fontSize: 16 }, button: { backgroundColor: palette.olive, borderRadius: 2, padding: 16, alignItems: 'center' }, buttonText: { color: palette.surface, fontWeight: '600' }, link: { color: palette.olive, paddingVertical: 12 }, error: { color: '#A33827', lineHeight: 22 } });

@@ -23,3 +23,16 @@ test('Non-plant images and absent classifications yield no suggestions', () => {
   assert.deepEqual(mapSuggestions({ result: { is_plant: { binary: false }, classification: { suggestions: [{ name: 'Aloe vera' }] } } }), []);
   assert.deepEqual(mapSuggestions({}), []);
 });
+
+test('Each species keeps its own reference image and attribution', () => {
+  const data = result(['Anthurium andraeanum', 'Ficus lyrata'].map((name, index) => ({
+    name, probability: .9 - index / 10, details: { image: { value: `https://images.example.test/species-${index}.jpg`, citation: `Author ${index}`, license_name: 'CC BY-SA 4.0', license_url: 'https://creativecommons.org/licenses/by-sa/4.0/' } },
+  })));
+  const mapped = mapSuggestions(data);
+  assert.equal(mapped[0].botanicalImage.url, 'https://images.example.test/species-0.jpg');
+  assert.equal(mapped[1].botanicalImage.author, 'Author 1');
+  assert.equal(mapped[1].botanicalImage.license, 'CC BY-SA 4.0');
+  for (const image of [{ value: 'javascript:alert(1)', license_name: 'CC BY' }, { value: 'https://images.example.test/photo.jpg' }]) {
+    assert.equal(mapSuggestions(result([{ name: 'Unknown', details: { image } }]))[0].botanicalImage, undefined);
+  }
+});

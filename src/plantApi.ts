@@ -1,4 +1,5 @@
 import { validLandmarks, type Landmarks, type ImageSize } from './measurement.ts';
+import type { BotanicalImage } from './botanical.ts';
 export type PlantIdentification = {
   commonName: string;
   scientificName: string;
@@ -6,6 +7,7 @@ export type PlantIdentification = {
   confidence: number;
   wateringAdvice: string;
   description?: string;
+  botanicalImage?: BotanicalImage;
 };
 
 type ApiError = { error?: string };

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { openAccounts } from '../server/accounts.mjs';
 import { mergeLocalPlants } from '../src/accountApi.ts';
 const credentials = { email: 'alice@example.test', password: 'Test-password-123!' };
-const plant = { id: 'plant-1', name: 'Aloe', species: 'Aloe vera', room: 'Salon', height: 30, pot: 14, soil: 'Terreau', temperature: 20, interval: 7, lastWatered: null, createdAt: '2026-09-01T12:00:00Z', repotDate: '2027-09-01T12:00:00Z', caretaker: '', history: [], photo: 'data:image/png;base64,YWJj' };
+const plant = { id: 'plant-1', name: 'Aloe', species: 'Aloe vera', room: 'Salon', height: 30, pot: 14, soil: 'Terreau', temperature: 20, interval: 7, lastWatered: null, createdAt: '2026-09-01T12:00:00Z', repotDate: '2027-09-01T12:00:00Z', caretaker: '', history: [], photo: 'data:image/png;base64,YWJj', photoMode: 'botanical', photoFit: 'contain', botanicalImage: { url: 'https://images.example.test/aloe.jpg', author: 'Author', license: 'CC BY', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' } };
 const garden = { plants: [plant], reminders: false, reminderTime: '18:30' };
 test('Accounts persist across reopening; passwords and session tokens are not stored in plaintext', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'folia-account-'));

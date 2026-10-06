@@ -37,7 +37,7 @@ export async function identifyImage(image, { apiKey, fetchImpl = fetch } = {}) {
   if (!apiKey) throw new IdentificationError(503, 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.');
   const normalized = await normalizeIdentificationImage(image);
   try {
-    const response = await fetchImpl('https://api.plant.id/v3/identification?details=common_names,taxonomy,watering,description&language=fr', {
+    const response = await fetchImpl('https://api.plant.id/v3/identification?details=common_names,taxonomy,watering,description,image&language=fr', {
       method: 'POST', headers: { 'Api-Key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ images: [normalized] }), signal: AbortSignal.timeout(45000),
     });

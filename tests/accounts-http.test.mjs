@@ -28,7 +28,9 @@ test('Real HTTP account lifecycle: registration, private collection, conflict, l
     const session = await signup.json();
     const loaded = await (await request('/garden', 'GET', session.token)).json();
     assert.deepEqual(loaded, { garden: { plants: [], reminders: false }, revision: 0 });
-    const update = { garden: { plants: [], reminders: false, reminderTime: '08:45' }, revision: 0 };
+    const caretaker = { name: 'Camille', phone: '+33 6 00 00 00 00', email: 'camille@example.test', notes: 'Vérifier le terreau avant d’arroser.' };
+    const home = { version: 1, width: 12, height: 10, northAngle: 0, floor: 0, month: 6, latitude: 48.85, background: 'data:image/png;base64,YWJj', areas: [{ id: 'garden', name: 'Jardin', kind: 'garden', x: 0, y: 0, width: 4, height: 3, windows: [], shade: 'none' }] };
+    const update = { garden: { plants: [], reminders: false, reminderTime: '08:45', caretaker, home }, revision: 0 };
     assert.equal((await request('/garden', 'PUT', session.token, update)).status, 200);
     assert.equal((await request('/garden', 'PUT', session.token, update)).status, 409);
     const options = await request('/garden', 'OPTIONS');
@@ -40,6 +42,11 @@ test('Real HTTP account lifecycle: registration, private collection, conflict, l
     assert.equal(login.status, 200);
     const again = await login.json();
     assert.equal((await (await request('/garden', 'GET', again.token)).json()).garden.reminderTime, '08:45');
+    assert.deepEqual((await (await request('/garden', 'GET', again.token)).json()).garden.caretaker, caretaker);
+    assert.deepEqual((await (await request('/garden', 'GET', again.token)).json()).garden.home, home);
+    const invalidHome = await request('/garden', 'PUT', again.token, { garden: { ...update.garden, home: { ...home, width: -1 } }, revision: 1 });
+    assert.equal(invalidHome.status, 400);
+    assert.deepEqual((await (await request('/garden', 'GET', again.token)).json()).garden.home, home);
     let limited;
     for (let i = 0; i < 21; i++) limited = await request('/auth/login', 'POST', undefined, { email: 'invalid', password: 'short' });
     assert.equal(limited.status, 429);

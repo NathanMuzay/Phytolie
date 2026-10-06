@@ -34,5 +34,12 @@ export async function saveAccountGarden(session: AccountSession, garden: Garden,
 export async function logoutAccount(session: AccountSession): Promise<void> { await request('/auth/logout', 'POST', session.token); }
 export function mergeLocalPlants(account: Garden, local: Garden): Garden {
   const ids = new Set(account.plants.map(p => p.id));
-  return { ...account, plants: [...account.plants, ...local.plants.filter(p => !ids.has(p.id))] };
+  const home = account.home ?? local.home;
+  const compatiblePlan = !account.home || JSON.stringify(account.home) === JSON.stringify(local.home);
+  const imported = local.plants.filter(p => !ids.has(p.id)).map(plant => {
+    if (compatiblePlan || !plant.position) return plant;
+    const { position, ...unplaced } = plant;
+    return unplaced;
+  });
+  return { ...account, ...(home ? { home } : {}), plants: [...account.plants, ...imported] };
 }
