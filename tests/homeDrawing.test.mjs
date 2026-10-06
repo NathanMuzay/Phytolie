@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rectangleFromDrag } from '../src/homeDrawing.ts';
+import { rectangleFromDrag, positionAtPoint } from '../src/homeDrawing.ts';
 import { validateHome, newHome } from '../src/home.ts';
 test('Drawing in either direction produces the same valid room', () => {
   const bounds = { width: 20, height: 15 };
@@ -19,4 +19,20 @@ test('A click cannot create a default room, and invalid dimensions cannot produc
   assert.deepEqual(rectangleFromDrag({ x: 2, y: 2 }, { x: 2, y: 2 }, { width: 10, height: 8 }), { x: 2, y: 2, width: 0, height: 0 });
   assert.equal(rectangleFromDrag({ x: NaN, y: 0 }, { x: 1, y: 1 }, { width: 10, height: 8 }), null);
   assert.equal(rectangleFromDrag({ x: 0, y: 0 }, { x: 1, y: 1 }, { width: 0, height: 8 }), null);
+});
+
+const home = { ...newHome(), areas: [
+  { id: 'salon', name: 'Salon', kind: 'room', x: 0, y: 0, width: 5, height: 4, windows: [], shade: 'none' },
+  { id: 'jardin', name: 'Jardin', kind: 'garden', x: 6, y: 0, width: 5, height: 4, windows: [], shade: 'none' },
+] };
+test('Dropping a plant in another area keeps its height and light preference', () => {
+  const previous = { areaId: 'salon', x: 2, y: 2, height: 1.2, preference: 'indirect' };
+  assert.deepEqual(positionAtPoint(home, { x: 7.23, y: 2.37 }, previous), { areaId: 'jardin', x: 7.2, y: 2.4, height: 1.2, preference: 'indirect' });
+  assert.equal(previous.areaId, 'salon');
+});
+test('Empty-space drops are rejected, while first placement works without coordinate input', () => {
+  assert.equal(positionAtPoint(home, { x: 5.5, y: 2 }), undefined);
+  assert.equal(positionAtPoint(home, { x: -1, y: 2 }), undefined);
+  assert.equal(positionAtPoint(home, { x: NaN, y: 2 }), undefined);
+  assert.deepEqual(positionAtPoint(home, { x: 2, y: 2 }), { areaId: 'salon', x: 2, y: 2, height: .5, preference: undefined });
 });
