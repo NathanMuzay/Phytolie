@@ -30,7 +30,7 @@ export function PreferencesScreen() {
   </View>;
 }
 const baseStyles = StyleSheet.create({
-  page: { gap: 24, width: '100%', maxWidth: 850 },
+  page: { alignSelf: 'center', gap: 24, width: '100%', maxWidth: 850 },
   title: { fontFamily: fonts.editorial, fontSize: 44, color: palette.ink },
   heading: { fontSize: 23, fontWeight: '600', color: palette.ink },
   body: { fontSize: 16, lineHeight: 24, color: palette.ink }, hint: { fontSize: 14, lineHeight: 22, color: palette.muted },

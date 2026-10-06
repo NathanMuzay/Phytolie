@@ -32,9 +32,9 @@ export function CaretakerScreen({ contact, disabled, onSave }: { contact?: Caret
   </View>;
 }
 const baseStyles = StyleSheet.create({
-  content: { borderRadius: 16, padding: 22, width: '100%', maxWidth: 760, gap: 24 }, title: { fontFamily: fonts.editorial, fontSize: 44, color: palette.ink },
+  content: { alignSelf: 'center', backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderLeftWidth: 4, borderLeftColor: palette.terracotta, borderRadius: 16, padding: 24, width: '100%', maxWidth: 760, gap: 24 }, title: { fontFamily: fonts.editorial, fontSize: 44, color: palette.ink },
   body: { color: palette.muted, fontSize: 15, lineHeight: 23 }, field: { gap: 8 }, label: { color: palette.olive, fontWeight: '600', fontSize: 13 },
   input: { backgroundColor: palette.surface, color: palette.ink, padding: 14, borderWidth: 1, borderColor: palette.line, fontSize: 16 },
-  button: { backgroundColor: palette.forest, padding: 18, alignItems: 'center' }, buttonText: { color: palette.surface, fontSize: 14 },
+  button: { alignSelf: 'flex-start', maxWidth: '100%', borderRadius: 10, backgroundColor: palette.forest, padding: 18, alignItems: 'center' }, buttonText: { color: palette.surface, fontSize: 14 },
   link: { color: palette.olive, paddingVertical: 12, fontSize: 14 }, error: { color: '#A33827', fontSize: 14 },
 });
