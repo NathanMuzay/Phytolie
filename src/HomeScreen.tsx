@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { rectangleFromDrag, type DrawnRectangle, type PlanPoint } from './homeDrawing';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image, Linking, PanResponder, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View, type ViewStyle } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { newHome, validateHome, inside, validPosition, estimatePlacement, exposureLabels, type HomeArea, type HomePlan, type PlantPosition, type HomeWindow, type Exposure } from './home';
 import type { Plant } from './model';
@@ -16,13 +17,45 @@ function Input({ label, value, change, numeric = false, disabled = false }: { la
   useEffect(() => { if (focused.current) return; setText(typeof value === 'number' && !Number.isFinite(value) ? '' : String(value)); }, [value]);
   return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} style={styles.input} value={numeric ? text : String(value)} onFocus={() => { focused.current = true; }} onChangeText={s => { if (numeric) { setText(s); if (!s.trim() || /^-?\d+(?:[.,]\d+)?$/.test(s)) change(s); } else change(s); }} onBlur={() => { focused.current = false; if (numeric) change(text); }} keyboardType={numeric ? 'decimal-pad' : 'default'} editable={!disabled} maxLength={numeric ? 12 : 100} /></View>;
 }
-export function PlanCanvas({ home, positions = [], onPoint }: { home: HomePlan; positions?: { name: string; position: PlantPosition }[]; onPoint?: (p: { x: number; y: number }) => void }) {
+export function PlanCanvas({ home, positions = [], onPoint, drawMode, onDraw, disabled = false }: { home: HomePlan; positions?: { name: string; position: PlantPosition }[]; onPoint?: (p: PlanPoint) => void; drawMode?: 'room' | 'garden'; onDraw?: (rectangle: DrawnRectangle) => void; disabled?: boolean }) {
   const styles = useReadableStyles(baseStyles);
   const [width, setWidth] = useState(600);
-  const height = Math.max(240, Math.min(600, width * home.height / home.width));
-  if (!Number.isFinite(home.width) || !Number.isFinite(home.height) || home.width <= 0 || home.height <= 0) return <Text style={styles.body}>Renseignez des dimensions positives pour afficher le plan.</Text>;
-  const sx = width / home.width, sy = height / home.height;
-  return <View style={{ gap: 8 }}><Text style={styles.body}>Plan : {home.width} × {home.height} m · Nord à {home.northAngle}° du haut du plan</Text><Pressable accessibilityRole="button" accessibilityLabel="Plan du logement : toucher pour sélectionner un emplacement. Les coordonnées peuvent aussi être saisies dans le formulaire." onLayout={e => setWidth(e.nativeEvent.layout.width)} onPress={e => { if (onPoint) onPoint({ x: Math.round(e.nativeEvent.locationX / sx * 10) / 10, y: Math.round(e.nativeEvent.locationY / sy * 10) / 10 }); }} style={[styles.canvas, { height }]}>
+  const validDimensions = Number.isFinite(home.width) && Number.isFinite(home.height) && home.width > 0 && home.height > 0;
+  const height = validDimensions ? Math.max(240, Math.min(600, width * home.height / home.width)) : 240;
+  const sx = validDimensions ? width / home.width : 1, sy = validDimensions ? height / home.height : 1;
+  const start = useRef<PlanPoint | null>(null);
+  const [preview, setPreview] = useState<DrawnRectangle | null>(null);
+  const drawing = !!drawMode && !disabled && validDimensions;
+  useEffect(() => { start.current = null; setPreview(null); }, [drawMode, disabled, home.width, home.height]);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !drawing) return;
+    const cancel = (e: KeyboardEvent) => { if (e.key === 'Escape') { start.current = null; setPreview(null); } };
+    window.addEventListener('keydown', cancel);
+    return () => window.removeEventListener('keydown', cancel);
+  }, [drawing]);
+  const responder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponderCapture: event => drawing && (!('button' in event.nativeEvent) || event.nativeEvent.button === 0),
+    onMoveShouldSetPanResponderCapture: () => drawing,
+    onPanResponderGrant: event => {
+      start.current = { x: event.nativeEvent.locationX / sx, y: event.nativeEvent.locationY / sy };
+      setPreview(rectangleFromDrag(start.current, start.current, home));
+    },
+    onPanResponderMove: (_event, gesture) => {
+      if (start.current) setPreview(rectangleFromDrag(start.current, { x: start.current.x + gesture.dx / sx, y: start.current.y + gesture.dy / sy }, home));
+    },
+    onPanResponderRelease: (_event, gesture) => {
+      const origin = start.current;
+      start.current = null; setPreview(null);
+      if (origin && drawing) {
+        const rectangle = rectangleFromDrag(origin, { x: origin.x + gesture.dx / sx, y: origin.y + gesture.dy / sy }, home);
+        if (rectangle) onDraw?.(rectangle);
+      }
+    },
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderTerminate: () => { start.current = null; setPreview(null); },
+  }), [drawing, sx, sy, home, onDraw]);
+  if (!validDimensions) return <Text style={styles.body}>Renseignez des dimensions positives pour afficher le plan.</Text>;
+  return <View style={{ gap: 8 }}><Text style={styles.body}>Plan : {home.width} × {home.height} m · Nord à {home.northAngle}° du haut du plan</Text><View {...responder.panHandlers}><Pressable accessibilityRole="button" accessibilityLabel={drawMode ? "Plan du logement : cliquer et glisser pour dessiner une zone. La saisie des coordonnées reste disponible." : "Plan du logement : toucher pour sélectionner un emplacement. Les coordonnées peuvent aussi être saisies dans le formulaire."} onLayout={e => setWidth(e.nativeEvent.layout.width)} onPress={e => { if (!drawMode && !disabled && onPoint) onPoint({ x: Math.round(e.nativeEvent.locationX / sx * 10) / 10, y: Math.round(e.nativeEvent.locationY / sy * 10) / 10 }); }} style={[styles.canvas, { height, ...(Platform.OS === 'web' ? { cursor: drawing ? 'crosshair' : 'pointer' } : {}) } as ViewStyle]}>
     {home.background && <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={{ uri: home.background }} resizeMode="stretch" style={[StyleSheet.absoluteFill, { opacity: .4 }]} /></View>}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {Array.from({ length: Math.min(100, Math.floor(home.width)) }, (_, x) => <View key={`x${x}`} style={{ position: 'absolute', left: x * sx, top: 0, bottom: 0, borderLeftWidth: 1, borderColor: '#D8D4BF60' }} />)}
@@ -31,9 +64,10 @@ export function PlanCanvas({ home, positions = [], onPoint }: { home: HomePlan; 
         {a.windows.map(w => { const horizontal = w.wall === 'top' || w.wall === 'bottom'; return <View key={w.id} style={{ position: 'absolute', backgroundColor: '#468399', width: horizontal ? w.width * sx : 5, height: horizontal ? 5 : w.width * sy, left: w.wall === 'right' ? a.width * sx - 5 : horizontal ? (w.offset - w.width / 2) * sx : -2, top: w.wall === 'bottom' ? a.height * sy - 5 : horizontal ? -2 : (w.offset - w.width / 2) * sy }} />; })}
       </View>)}
       {positions.map(({ name, position }, i) => <View key={`${name}-${i}`} style={{ position: 'absolute', left: position.x * sx - 12, top: position.y * sy - 12 }}><Text style={styles.pin}>●</Text><Text style={styles.mapLabel}>{name}</Text></View>)}
+      {preview && <View style={{ position: 'absolute', left: preview.x * sx, top: preview.y * sy, width: preview.width * sx, height: preview.height * sy, borderWidth: 2, borderStyle: 'dashed', borderColor: palette.terracotta, backgroundColor: drawMode === 'garden' ? '#C1D4A580' : '#E9E9D880' }}><Text style={[styles.mapLabel, { padding: 5 }]}>{preview.width.toFixed(1)} × {preview.height.toFixed(1)} m</Text></View>}
       <Text style={[styles.mapLabel, { position: 'absolute', right: 10, top: 10, transform: [{ rotate: `${-home.northAngle}deg` }] }]}>↑ N</Text>
     </View>
-  </Pressable><Text style={styles.hint}>Fenêtres en bleu · coordonnées depuis le coin haut gauche. Le fond importé est ajusté aux dimensions du plan.</Text></View>;
+  </Pressable></View><Text style={styles.hint}>Fenêtres en bleu · coordonnées depuis le coin haut gauche. Le fond importé est ajusté aux dimensions du plan.</Text></View>;
 }
 export function ExposureDetails({ home, position, species }: { home: HomePlan; position: PlantPosition; species: string }) {
   const styles = useReadableStyles(baseStyles), estimate = estimatePlacement(home, position, species);
@@ -57,6 +91,7 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
   const [positions, setPositions] = useState<Record<string, PlantPosition | undefined>>(() => Object.fromEntries(plants.map(p => [p.id, p.position])));
   const [selected, setSelected] = useState('');
   const [plantId, setPlantId] = useState(plants[0]?.id ?? '');
+  const [drawError, setDrawError] = useState('');
   const [tool, setTool] = useState<'select' | 'room' | 'garden'>('select');
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [importing, setImporting] = useState(false);
   const area = draft.areas.find(a => a.id === selected), plant = plants.find(p => p.id === plantId);
@@ -92,9 +127,16 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
   function updateWindow(w: HomeWindow, patch: Partial<HomeWindow>) { updateArea({ windows: area!.windows.map(item => item.id === w.id ? { ...w, ...patch } : item) }); }
   return <View style={{ gap: 24 }}><Text accessibilityRole="header" style={styles.title}>Ma maison</Text><Text style={styles.body}>1. Créez les pièces et le jardin · 2. Ajoutez les fenêtres · 3. Placez vos plantes · 4. Enregistrez. Les pièces sont rectangulaires ; combinez plusieurs zones pour un logement irrégulier.</Text>
     <View style={styles.card}><Text style={styles.subtitle}>Dimensions et orientation</Text><View style={styles.row}>{(['width', 'height', 'northAngle', 'floor', 'month'] as const).map(key => <Input key={key} disabled={blocked} numeric label={{ width: 'Largeur du plan (m)', height: 'Hauteur du plan (m)', northAngle: 'Orientation du haut du plan (0° nord, 90° est)', floor: 'Étage (0 = rez-de-chaussée)', month: 'Mois étudié (1 à 12)' }[key]} value={draft[key]} change={s => change({ ...draft, [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}<Input label="Latitude (−90 à 90, nécessaire au calcul solaire)" value={draft.latitude ?? ''} numeric disabled={blocked} change={s => change({ ...draft, latitude: s.trim() ? Number(s.replace(',', '.')) : undefined })} /></View>{latitude != null && <Action title="Utiliser la latitude de ma ville" disabled={blocked} onPress={() => change({ ...draft, latitude })} />}<Text style={styles.hint}>La ville se règle dans « Mon espace ». Le mois sert à comparer les saisons ; l’étage est informatif. Le calcul utilise les heures solaires, sans prédire la météo.</Text></View>
-    <View style={styles.row}><Action title={importing ? 'Import…' : 'Importer un plan (image)'} disabled={blocked} onPress={() => void importPlan()} />{draft.background && <Action title="Retirer le fond importé" disabled={blocked} onPress={() => change({ ...draft, background: undefined })} />}<Action title="Ajouter une pièce au clic" disabled={blocked} onPress={() => setTool('room')} /><Action title="Ajouter un jardin au clic" disabled={blocked} onPress={() => setTool('garden')} /><Action title="Sélectionner" disabled={blocked} onPress={() => setTool('select')} /></View>
-    <Text style={styles.body}>{tool === 'select' ? 'Touchez une zone pour la modifier, ou utilisez la liste ci-dessous.' : 'Touchez le plan pour définir le coin haut gauche de la nouvelle zone.'} Un fond importé doit être retracé avec les pièces et fenêtres.</Text>
-    <PlanCanvas home={draft} positions={plants.flatMap(p => positions[p.id] ? [{ name: p.name, position: positions[p.id]! }] : [])} onPoint={point => { if (blocked) return; if (tool !== 'select') addArea(tool, point); else setSelected(draft.areas.find(a => inside(a, point))?.id ?? ''); }} />
+    <View style={styles.row}><Action title={importing ? 'Import…' : 'Importer un plan (image)'} disabled={blocked} onPress={() => void importPlan()} />{draft.background && <Action title="Retirer le fond importé" disabled={blocked} onPress={() => change({ ...draft, background: undefined })} />}<Action title={`${tool === 'room' ? '✓ ' : ''}Dessiner une pièce`} disabled={blocked} onPress={() => { setTool('room'); setDrawError(''); }} /><Action title={`${tool === 'garden' ? '✓ ' : ''}Dessiner un jardin`} disabled={blocked} onPress={() => { setTool('garden'); setDrawError(''); }} /><Action title="Sélectionner" disabled={blocked} onPress={() => { setTool('select'); setDrawError(''); }} /></View>
+    <Text style={styles.body}>{tool === 'select' ? 'Touchez une zone pour la modifier, ou utilisez la liste ci-dessous.' : 'Maintenez le bouton de la souris et glissez pour tracer la zone, puis relâchez. Minimum 0,5 × 0,5 m ; Échap annule le tracé.'} Un fond importé doit être retracé avec les pièces et fenêtres.</Text>
+    <PlanCanvas home={draft} positions={plants.flatMap(p => positions[p.id] ? [{ name: p.name, position: positions[p.id]! }] : [])} disabled={blocked} drawMode={tool === 'select' ? undefined : tool} onDraw={rectangle => {
+      if (blocked || tool === 'select') return;
+      if (rectangle.width < .5 || rectangle.height < .5) { setDrawError('Tracez une zone d’au moins 0,5 × 0,5 m en maintenant le bouton de la souris.'); return; }
+      const next: HomeArea = { ...rectangle, id: id(), name: tool === 'room' ? 'Nouvelle pièce' : 'Jardin', kind: tool, windows: [], shade: 'none' };
+      if (draft.areas.some(a => Math.min(a.x + a.width, next.x + next.width) > Math.max(a.x, next.x) + .001 && Math.min(a.y + a.height, next.y + next.height) > Math.max(a.y, next.y) + .001)) { setDrawError('Cette zone chevauche une autre zone. Retracez-la dans un espace libre.'); return; }
+      setDrawError(''); change({ ...draft, areas: [...draft.areas, next] }); setSelected(next.id);
+    }} onPoint={point => { if (!blocked) setSelected(draft.areas.find(a => inside(a, point))?.id ?? ''); }} />
+    {!!drawError && <Text accessibilityRole="alert" style={styles.error}>{drawError}</Text>}
     <View style={styles.row}>{draft.areas.map(a => <Action key={a.id} title={`${selected === a.id ? '✓ ' : ''}${a.name}`} disabled={blocked} onPress={() => setSelected(a.id)} />)}<Action title="＋ Pièce (saisie des coordonnées)" disabled={blocked} onPress={() => addArea('room')} /><Action title="＋ Jardin (saisie des coordonnées)" disabled={blocked} onPress={() => addArea('garden')} /></View>
     {area && <View style={styles.card}><Text style={styles.subtitle}>{area.kind === 'garden' ? 'Jardin' : 'Pièce'} · {area.name}</Text><Input label="Nom de la zone" value={area.name} disabled={blocked} change={name => updateArea({ name })} /><View style={styles.row}>{(['x', 'y', 'width', 'height'] as const).map(key => <Input key={key} numeric disabled={blocked} label={{ x: 'Zone X (m)', y: 'Zone Y (m)', width: 'Largeur de la zone (m)', height: 'Profondeur de la zone (m)' }[key]} value={area[key]} change={s => updateArea({ [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}</View>
       {area.kind === 'garden' ? <><Text style={styles.label}>Ombrage du jardin (arbres, murs, abri)</Text><View style={styles.row}>{(['none', 'partial', 'blocked'] as const).map(shade => <Action key={shade} title={`${area.shade === shade ? '✓ ' : ''}${{ none: 'Dégagé', partial: 'Partiellement ombragé', blocked: 'Très ombragé' }[shade]}`} disabled={blocked} onPress={() => updateArea({ shade })} />)}</View></> : <><Text style={styles.body}>Ajoutez les fenêtres donnant sur l’extérieur. Un mur sans fenêtre bloque le soleil ; les pièces voisines ne transmettent pas la lumière dans cette première version.</Text><Action title="＋ Fenêtre" disabled={blocked} onPress={() => updateArea({ windows: [...area.windows, { id: id(), wall: 'top', offset: area.width / 2, width: Math.min(1.2, area.width), sill: .8, height: 1.4, filtered: false, obstruction: 'none' }] })} />{area.windows.map((w, index) => <View key={w.id} style={styles.card}><Text style={styles.label}>Fenêtre {index + 1}</Text><View style={styles.row}>{(['top', 'right', 'bottom', 'left'] as const).map(wall => <Action key={wall} title={`${w.wall === wall ? '✓ ' : ''}${{ top: 'Mur du haut', right: 'Mur droit', bottom: 'Mur du bas', left: 'Mur gauche' }[wall]}`} disabled={blocked} onPress={() => updateWindow(w, { wall, offset: (['top', 'bottom'].includes(wall) ? area.width : area.height) / 2 })} />)}</View><View style={styles.row}>{(['offset', 'width', 'sill', 'height'] as const).map(key => <Input key={key} numeric disabled={blocked} label={{ offset: 'Centre depuis le début du mur (m)', width: 'Largeur de la fenêtre (m)', sill: 'Bas de la fenêtre au-dessus du sol (m)', height: 'Hauteur vitrée (m)' }[key]} value={w[key]} change={s => updateWindow(w, { [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}</View><View style={styles.row}><Text style={styles.body}>Voilage / lumière filtrée</Text><Switch accessibilityLabel={`Voilage de la fenêtre ${index + 1}`} disabled={blocked} value={w.filtered} onValueChange={filtered => updateWindow(w, { filtered })} /></View><Text style={styles.label}>Obstacle extérieur devant cette fenêtre</Text><View style={styles.row}>{(['none', 'partial', 'blocked'] as const).map(obstruction => <Action key={obstruction} title={`${w.obstruction === obstruction ? '✓ ' : ''}${{ none: 'Aucun', partial: 'Partiel', blocked: 'Bloque la lumière' }[obstruction]}`} disabled={blocked} onPress={() => updateWindow(w, { obstruction })} />)}</View><Action title="Retirer cette fenêtre" disabled={blocked} onPress={() => updateArea({ windows: area.windows.filter(item => item.id !== w.id) })} /></View>)}</>}
@@ -108,5 +150,5 @@ const baseStyles = StyleSheet.create({
   title: { fontFamily: fonts.editorial, fontSize: 44, color: palette.ink }, subtitle: { fontFamily: fonts.editorial, fontSize: 26, color: palette.ink }, body: { fontSize: 15, lineHeight: 23, color: palette.muted }, hint: { fontSize: 12, lineHeight: 19, color: palette.muted },
   card: { padding: 18, gap: 16, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' }, field: { gap: 6, minWidth: 140, flexGrow: 1 }, label: { color: palette.olive, fontSize: 13 },
   input: { borderWidth: 1, borderColor: palette.line, padding: 12, color: palette.ink, fontSize: 16, backgroundColor: palette.surface }, button: { padding: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.sage, minHeight: 44 }, buttonText: { fontSize: 14, color: palette.ink },
-  canvas: { width: '100%', borderWidth: 1, borderColor: palette.line, backgroundColor: palette.paper, overflow: 'hidden' }, mapLabel: { color: palette.ink, fontSize: 11 }, pin: { fontSize: 24, color: palette.terracotta }, error: { color: '#A33827', fontSize: 15 }, link: { color: palette.olive, fontSize: 14, textDecorationLine: 'underline' },
+  canvas: { width: '100%', borderWidth: 1, borderColor: palette.line, backgroundColor: palette.paper, overflow: 'hidden' }, mapLabel: { color: palette.ink, fontSize: 11, userSelect: 'none' }, pin: { fontSize: 24, color: palette.terracotta }, error: { color: '#A33827', fontSize: 15 }, link: { color: palette.olive, fontSize: 14, textDecorationLine: 'underline' },
 });

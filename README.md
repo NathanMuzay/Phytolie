@@ -242,7 +242,7 @@ La page **Personne de confiance** permet d’enregistrer un nom, un téléphone,
 Ouvrez **Ma maison** (`#/ma-maison`) :
 
 1. Renseignez les dimensions totales en mètres, l’étage, le mois étudié et l’orientation du haut du plan (0° = nord, 90° = est). Ajoutez la latitude, ou reprenez celle de la ville choisie dans **Mon espace**.
-2. Ajoutez des pièces rectangulaires et un jardin en touchant le plan, puis ajustez leur nom, position et dimensions. Les zones doivent rester dans le plan sans se chevaucher.
+2. Choisissez **Dessiner une pièce** ou **Dessiner un jardin**, puis cliquez-glissez sur le plan pour tracer une zone rectangulaire. Un aperçu affiche ses dimensions ; relâchez pour la créer. Le tracé s’aligne tous les 10 cm, dans les deux sens ; Échap annule le geste. Vous pouvez tracer plusieurs zones avec le même outil, puis choisir **Sélectionner** pour modifier leur nom, position et dimensions. Les formulaires de coordonnées restent disponibles. Les zones doivent rester dans le plan sans se chevaucher.
 3. Ajoutez les fenêtres extérieures sur le mur approprié, leur largeur, leur position et leur hauteur au-dessus du sol. Renseignez voilages et obstacles extérieurs ; pour le jardin, choisissez l’ombrage.
 4. Sélectionnez une plante et placez son pin sur le plan, ou saisissez ses coordonnées. Indiquez la hauteur du feuillage.
 5. Cliquez sur **Enregistrer le plan et les emplacements**. Le plan et les pins suivent la sauvegarde locale ou le compte ; les pièces, intérieur/extérieur et expositions calculables sont mis à jour ensemble. Déplacer ou supprimer une zone peut retirer les pins devenus invalides. Retirer un pin conserve les derniers paramètres d’entretien, qui restent modifiables dans la fiche.
