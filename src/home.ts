@@ -1,7 +1,9 @@
 export type Exposure = 'shade' | 'indirect' | 'sun';
 export type HomeWindow = { id: string; wall: 'top' | 'right' | 'bottom' | 'left'; offset: number; width: number; sill: number; height: number; filtered: boolean; obstruction: 'none' | 'partial' | 'blocked' };
 export type HomeArea = { id: string; name: string; kind: 'room' | 'garden'; x: number; y: number; width: number; height: number; windows: HomeWindow[]; shade: 'none' | 'partial' | 'blocked' };
-export type HomePlan = { version: 1; width: number; height: number; northAngle: number; floor: number; month: number; latitude?: number; background?: string; areas: HomeArea[] };
+export type HomeWall = { id: string; start: { x: number; y: number }; end: { x: number; y: number }; control?: { x: number; y: number }; thickness: number };
+export type HomeOpening = { id: string; kind: 'door' | 'window'; areaId?: string; side?: HomeWindow['wall']; wallId?: string; offset: number; width: number; reversed: boolean; outward: boolean };
+export type HomePlan = { version: 1; width: number; height: number; northAngle: number; floor: number; month: number; latitude?: number; background?: string; areas: HomeArea[]; walls?: HomeWall[]; openings?: HomeOpening[] };
 export type PlantPosition = { areaId: string; x: number; y: number; height: number; preference?: Exposure };
 export const exposureLabels: Record<Exposure, string> = { shade: 'Ombre / faible lumière', indirect: 'Lumière indirecte', sun: 'Soleil direct' };
 export const newHome = (): HomePlan => ({ version: 1, width: 20, height: 15, northAngle: 0, floor: 0, month: new Date().getMonth() + 1, areas: [] });
@@ -27,6 +29,35 @@ export function validateHome(home: HomePlan): void {
   for (let i = 0; i < home.areas.length; i++) for (let j = i + 1; j < home.areas.length; j++) {
     const a = home.areas[i], b = home.areas[j];
     if (Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > .001 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > .001) throw new Error('Les pièces et jardins ne doivent pas se chevaucher.');
+  }
+  if (home.walls != null && (!Array.isArray(home.walls) || home.walls.length > 200)) throw new Error('Liste de murs invalide (200 maximum).');
+  const wallIds = new Set<string>();
+  const pointValid = (p: { x: number; y: number }) => !!p && number(p.x, 0, home.width) && number(p.y, 0, home.height);
+  for (const w of home.walls ?? []) {
+    if (!w || typeof w.id !== 'string' || !w.id || wallIds.has(w.id) || !pointValid(w.start) || !pointValid(w.end) || (w.control != null && !pointValid(w.control)) || Math.hypot(w.end.x - w.start.x, w.end.y - w.start.y) < .1 || !number(w.thickness, .05, 1)) throw new Error('Mur invalide : vérifiez les points et l’épaisseur.');
+    wallIds.add(w.id);
+  }
+  if (home.openings != null && (!Array.isArray(home.openings) || home.openings.length > 200)) throw new Error('Liste de portes et fenêtres invalide (200 maximum).');
+  const openingIds = new Set<string>();
+  for (const o of home.openings ?? []) {
+    if (!o || typeof o.id !== 'string' || !o.id || openingIds.has(o.id) || !['door', 'window'].includes(o.kind) || typeof o.reversed !== 'boolean' || typeof o.outward !== 'boolean') throw new Error('Porte ou fenêtre invalide.');
+    let length = 0;
+    if (o.wallId != null) {
+      const w = home.walls?.find(w => w.id === o.wallId);
+      if (!w || o.areaId != null || o.side != null) throw new Error('Le mur de cette ouverture n’existe plus.');
+      let last = w.start;
+      for (let i = 1; i <= 40; i++) {
+        const t = i / 40, c = w.control;
+        const p = c ? { x: (1-t)**2*w.start.x+2*(1-t)*t*c.x+t*t*w.end.x, y: (1-t)**2*w.start.y+2*(1-t)*t*c.y+t*t*w.end.y } : { x: w.start.x+t*(w.end.x-w.start.x), y: w.start.y+t*(w.end.y-w.start.y) };
+        length += Math.hypot(p.x-last.x, p.y-last.y); last = p;
+      }
+    } else {
+      const a = home.areas.find(a => a.id === o.areaId && a.kind === 'room');
+      if (!a || !['top', 'right', 'bottom', 'left'].includes(o.side ?? '') || o.kind !== 'door') throw new Error('Placez cette porte sur le mur d’une pièce.');
+      length = o.side === 'top' || o.side === 'bottom' ? a.width : a.height;
+    }
+    if (!number(o.width, .1, length) || !number(o.offset, o.width/2, length-o.width/2)) throw new Error('L’ouverture doit rester entièrement sur son mur.');
+    openingIds.add(o.id);
   }
 }
 export function speciesLight(species: string): { preference: Exposure; label: string; source: string } | null {
