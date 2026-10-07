@@ -107,6 +107,18 @@ Dans « Ajouter une plante » ou « Modifier la fiche », choisissez **Ma photo*
 
 La photo personnelle reste conservée lorsque vous affichez un visuel botanique. Choisissez **Photo entière** pour éviter de couper les feuilles ou **Remplir le cadre** pour un affichage recadré. Le carnet et les fiches partagent un cadre adaptatif au format 4:3. L’identification et les mesures utilisent uniquement votre photo originale. La photo de référence nécessite une connexion ; changer manuellement l’espèce efface la référence de l’ancienne espèce. Redémarrez `npm run api` après cette mise à jour pour obtenir les images dans les réponses de scan.
 
+## Affiner la lumière (facultatif)
+
+Dans « Ajouter une plante » ou « Modifier la fiche », choisissez **Faible lumière**, **Lumière indirecte** ou **Soleil direct** dans les paramètres d’entretien. Le bouton **Affiner avec une mesure (facultatif)** permet ensuite de compléter ce choix :
+
+1. Sur Android compatible, placez le téléphone à l’emplacement de la plante, à hauteur des feuilles, capteur dégagé et tourné vers la lumière. Appuyez sur **Mesurer avec mon téléphone** et restez immobile quelques secondes.
+2. Vérifiez les conditions (rideaux, éclairage artificiel), puis appuyez sur **Utiliser ce relevé**. Sur les autres appareils ou sans capteur disponible, saisissez la valeur d’un luxmètre. Zéro lux est accepté ; les valeurs doivent rester entre 0 et 200 000 lux.
+3. Enregistrez la fiche. Le dernier relevé, sa date et son heure, son origine, la pièce et les conditions sont conservés avec la collection du compte et affichés sur la fiche. Un nouveau relevé remplace le précédent ; « Retirer le relevé » permet de le supprimer à la prochaine sauvegarde.
+
+La mesure est entièrement facultative, sans rappels ni nouvelle configuration `.env`. Le capteur est arrêté à la fermeture de la mesure, au passage en arrière-plan ou après quelques secondes ; aucune collecte continue n’est effectuée. La précision dépend du téléphone. Le conseil utilise des repères généraux, sans seuil botanique propre à chaque espèce. Les lux ponctuels ne déterminent ni la lumière cumulée sur la journée, ni la présence de soleil direct : le choix d’exposition reste utilisé pour l’arrosage. Cette première version ne calibre pas le modèle du plan et ne couple pas le relevé au rayonnement météo.
+
+L’accès au capteur utilise [Expo LightSensor](https://docs.expo.dev/versions/latest/sdk/light-sensor/), disponible sur Android et inclus dans Expo Go. Après mise à jour des dépendances (`npm ci`), redémarrez Expo. Une application native personnalisée doit être reconstruite pour intégrer `expo-sensors`.
+
 ## Mesurer les dimensions sur photo
 
 Dans « Ajouter une plante » ou « Modifier la fiche », ajoutez une photo, puis ouvrez **Dimensions sur photo → Mesurer cette photo**.

@@ -2,10 +2,12 @@ import { validateHome, validPosition, type HomePlan, type PlantPosition } from '
 import { validMeasurement, type Measurement } from './measurement.ts';
 import { wateringPlan, type Irrigation } from './irrigation.ts';
 import type { City } from './weather.ts';
+import { validLightReading, type LightReading } from './light.ts';
 import { validBotanicalImage, type BotanicalImage, type PhotoMode, type PhotoFit } from './botanical.ts';
 export type Plant = {
   id: string; name: string; species: string; room: string; photo?: string;
   position?: PlantPosition;
+  lightReading?: LightReading;
   photoMode?: PhotoMode; photoFit?: PhotoFit;
   botanicalImage?: BotanicalImage;
   height: number; width?: number; measurement?: Measurement; pot: number; soil: string; temperature: number;
@@ -47,6 +49,7 @@ export function parseGarden(raw: string): Garden {
       (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))) throw new Error('Personne de confiance invalide');
   }
   for (const p of value.plants) {
+    if (p?.lightReading != null && !validLightReading(p.lightReading)) throw new Error('Relevé de lumière invalide');
     if (p.position != null && !validPosition(p.position, value.home)) throw new Error('Emplacement de plante invalide');
     if (p.photoMode != null && !['personal', 'botanical'].includes(p.photoMode)) throw new Error('Source du visuel invalide');
     if (p.photoFit != null && !['contain', 'cover'].includes(p.photoFit)) throw new Error('Cadrage du visuel invalide');

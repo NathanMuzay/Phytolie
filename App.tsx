@@ -12,6 +12,8 @@ import { botanicalLabel, preferredPhotoMode, type BotanicalImage, type PhotoMode
 import { palette, fonts, useReadableStyles, useThemePalette, botanicalPhoto } from './src/theme';
 import { DimensionMeasure } from './src/DimensionMeasure';
 import { type Measurement } from './src/measurement';
+import { LightMeasure, LightSummary } from './src/LightMeasure';
+import { type LightReading } from './src/light';
 import { wateringTolerance } from './src/tolerance';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -104,6 +106,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
   const [scanning, setScanning] = useState(false);
   const [measuring, setMeasuring] = useState(false);
   const [measurement, setMeasurement] = useState<Measurement | undefined>();
+  const [lightReading, setLightReading] = useState<LightReading | undefined>();
   const [suggestions, setSuggestions] = useState<PlantIdentification[]>([]);
   const [scanStatus, setScanStatus] = useState('');
   const lock = useRef(false);
@@ -306,7 +309,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     if (form.width.trim() && (!Number.isFinite(Number(form.width)) || Number(form.width) < 1 || Number(form.width) > 1000)) { setError('Largeur de la plante : entre 1 et 1 000 cm.'); return; }
     const repot = form.repotDate ? new Date(`${form.repotDate}T12:00:00`) : new Date(new Date().setFullYear(new Date().getFullYear() + 1));
     if (form.repotDate && (!/^\d{4}-\d{2}-\d{2}$/.test(form.repotDate) || !Number.isFinite(+repot) || repot.toISOString().slice(0, 10) !== form.repotDate)) { setError('La date doit être valide, au format AAAA-MM-JJ.'); return; }
-    const plant: Plant = { ...form, position, width: form.width.trim() ? Number(form.width) : undefined, measurement, irrigation, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? initialWatered?.toISOString() ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? (initialWatered ? [initialWatered.toISOString()] : []) };
+    const plant: Plant = { ...form, position, lightReading, width: form.width.trim() ? Number(form.width) : undefined, measurement, irrigation, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? initialWatered?.toISOString() ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? (initialWatered ? [initialWatered.toISOString()] : []) };
     if (await save({ ...garden, plants: existing ? garden.plants.map(p => p.id === existing.id ? plant : p) : [...garden.plants, plant] })) { setModal(false); setEditingId(null); setForm(initialForm); setNotice(existing ? 'Fiche modifiée. Historique des arrosages conservé.' : 'Plante ajoutée. Aucun arrosage n’est enregistré pour le moment.'); }
   }
   const sortedPlants = sortPlantsByUrgency(withWeather(garden.plants));
@@ -314,10 +317,11 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
   const due = sortedPlants.filter(p => daysUntil(dueDate(p)) <= 0);
   const current = withWeather(garden.plants).find(p => p.id === selected);
   const disabled = busy || scanning || measuring || !ready || loadFailed;
-  function openAdd(enter = true) { setPosition(undefined); setMeasurement(undefined); setIrrigation({ ...defaultIrrigation }); setLastWateredInput(''); setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); if (enter) navigate('new'); }
+  function openAdd(enter = true) { setLightReading(undefined); setPosition(undefined); setMeasurement(undefined); setIrrigation({ ...defaultIrrigation }); setLastWateredInput(''); setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); if (enter) navigate('new'); }
   function openEdit(plant: Plant, enter = true) {
     plant = garden.plants.find(p => p.id === plant.id) || plant;
     setPosition(plant.position);
+    setLightReading(plant.lightReading);
     setIrrigation(plant.irrigation || { ...defaultIrrigation, automatic: false }); setLastWateredInput('');
     setSuggestions([]); setEditingId(plant.id); setMeasurement(plant.measurement);
     setForm({ name: plant.name, species: plant.species, room: plant.room, photo: plant.photo || '', photoMode: preferredPhotoMode(plant), photoFit: plant.photoFit ?? 'contain', botanicalImage: plant.botanicalImage,
@@ -366,8 +370,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     <View style={[styles.header, !wide && { paddingHorizontal: 22 }]}><Pressable accessibilityRole="link" accessibilityLabel="Phytolie — Retour à l’accueil" onPress={() => navigate('garden')}><Text style={styles.brand}>Phytolie<Text style={{ color: palette.terracotta }}>.</Text></Text><Text style={styles.subtitle}>LE CARNET DU VIVANT</Text></Pressable>{wide && navigation}</View>
     {!!notice && <Pressable onPress={() => setNotice('')} accessibilityRole="button" accessibilityLabel="Fermer le message" style={{ paddingHorizontal: wide ? 40 : 22, paddingTop: 12 }}><Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}  ×</Text></Pressable>}
     <ScrollView key={page} contentContainerStyle={[styles.content, { maxWidth: contentLimit }, !wide && { padding: 22 }]} style={Platform.OS === 'web' && (modal || current) ? { display: 'none' } : undefined}>
-      <View style={styles.accountBar}><Text style={[styles.muted, { flex: 1 }]}>{account ? account.user.email : ''}</Text><Pressable accessibilityRole="button" disabled={busy || scanning || measuring} onPress={() => void switchAccount()} style={styles.accountLink}><Text style={styles.accountLinkText}>{account ? 'Se déconnecter ↗' : 'Connexion / Inscription ↗'}</Text></Pressable></View>
-      {(account || loadFailed) && <Button title="Recharger la collection" secondary disabled={busy || scanning || measuring || !ready} onPress={() => void loadGarden()} />}
+      {tab === 'garden' && <Button title="Recharger la collection" secondary disabled={busy || scanning || measuring || !ready} onPress={() => void loadGarden()} />}
       {missingPlant && <Text accessibilityRole="alert" style={styles.body}>Cette plante n’existe plus dans votre collection.</Text>}
       {!ready ? <Text style={styles.body}>Ouverture de votre jardin…</Text> : <>
       {tab === 'garden' && <>
@@ -393,7 +396,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {tab === 'tasks' && <TasksScreen plants={sortedPlants} disabled={disabled} onWatered={plant => void watered(plant)} onObserve={(plant, moisture) => void observeMoisture(plant, moisture)} onOpenPlant={plant => { setSelected(plant.id); setConfirmDelete(false); }} onAddPlant={garden.plants.length ? () => navigate('garden') : openAdd} />}
       {tab === 'home' && <HomeScreen home={garden.home} plants={garden.plants} latitude={garden.city?.latitude} disabled={disabled} onSave={(home, positions, plants) => save(gardenWithHome({ ...garden, plants }, home, positions))} />}
       {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants} initialInvitation={invitation} onAccepted={onAccepted} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
-      {tab === 'preferences' && <PreferencesScreen />}
+      {tab === 'preferences' && <PreferencesScreen account={{ email: account.user.email, disabled: busy || scanning || measuring, onDisconnect: () => void switchAccount() }} />}
       {tab === 'settings' && <>
         <Text accessibilityRole="header" style={styles.title}>Mon espace</Text>
         <View style={styles.row}><Button title="Ma maison ↗" secondary onPress={() => navigate('home')} /><Button title="Personne de confiance ↗" secondary onPress={() => navigate('caretaker')} /></View>
@@ -442,9 +445,9 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
         ['drainage', 'Trous de drainage', [['yes', 'Oui'], ['no', 'Non'], ['unknown', 'À vérifier']]],
         ['substrate', 'Rétention du terreau réel', [['standard', 'Standard'], ['draining', 'Très drainant'], ['retentive', 'Rétenteur'], ['bark', 'Écorces']]],
         ['location', 'Emplacement', [['indoor', 'Intérieur'], ['outdoor', 'Extérieur']]],
-        ['exposure', 'Exposition', [['shade', 'Ombre'], ['indirect', 'Lumière indirecte'], ['sun', 'Soleil']]],
+        ['exposure', 'Exposition', [['shade', 'Faible lumière'], ['indirect', 'Lumière indirecte'], ['sun', 'Soleil direct']]],
         ['season', 'Cycle actuel de la plante', [['growing', 'Croissance'], ['rest', 'Repos végétatif']]],
-      ] as const).map(([key, label, options]) => <View key={key} style={styles.field}><Text style={styles.label}>{label}</Text><View style={[styles.row, { flexWrap: 'wrap' }]}>{options.map(([value, title]) => <Button key={value} title={`${irrigation[key] === value ? '✓ ' : ''}${title}`} secondary={irrigation[key] !== value} onPress={() => setIrrigation(c => ({ ...c, [key]: value }))} />)}</View></View>)}
+      ] as const).map(([key, label, options]) => <View key={key} style={styles.field}><Text style={styles.label}>{label}</Text><View style={[styles.row, { flexWrap: 'wrap' }]}>{options.map(([value, title]) => <Button key={value} title={`${irrigation[key] === value ? '✓ ' : ''}${title}`} secondary={irrigation[key] !== value} onPress={() => setIrrigation(c => ({ ...c, [key]: value }))} />)}</View>{key === 'exposure' && <LightMeasure key={editingId ?? 'new'} reading={lightReading} room={form.room} active={modal} disabled={disabled} onChange={setLightReading} />}</View>)}
       {!editingId && <Field label="Dernier arrosage connu (AAAA-MM-JJ, facultatif)" value={lastWateredInput} onChange={setLastWateredInput} />}
       <Text style={styles.body}>{preview.instruction}</Text><Text style={styles.body}>Prochaine vérification : {Number.isFinite(+preview.nextCheck) ? dateLabel(preview.nextCheck) : 'date à corriger'}</Text>{preview.reasons.map(reason => <Text key={reason} style={styles.footnote}>{reason}</Text>)}<Text style={styles.footnote}>Le cycle est choisi selon la plante, sans supposer l’hémisphère. Sans capteur, l’humidité doit être vérifiée sur la fiche. Les dimensions décrivent le pot intérieur, pas le cache-pot.</Text></View>
       {!!form.wateringAdvice && <View style={styles.task}><Text style={styles.sectionTitle}>Conseil fourni par plant.id</Text><Text style={styles.body}>{form.wateringAdvice}</Text></View>}
@@ -455,6 +458,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {Platform.OS !== 'web' && <View style={styles.panelClose}><Button title="Fermer" secondary onPress={() => setSelected(null)} /></View>}<PlantVisual plant={current} />{preferredPhotoMode(current) === 'botanical' && <Text style={styles.captionText}>{botanicalLabel(current)}</Text>}<Text style={styles.title}>{current.name}</Text><Text style={styles.body}>{current.species} · {current.room}</Text>
       {!!current.description && <View style={styles.task}><Text style={styles.sectionTitle}>À propos de cette espèce</Text><Text style={styles.body}>{current.description}</Text>{!!current.family && <Text style={styles.body}>Famille : {current.family}</Text>}<Text style={styles.footnote}>Description fournie par plant.id.</Text></View>}
       <View style={styles.task}><Text style={styles.sectionTitle}>Fiche d’entretien</Text><Text style={styles.body}>{current.height} cm de haut{current.width != null ? ` · ${current.width} cm de large` : ''} · pot de {current.pot} cm{ '\n' }{current.soil} · {current.temperature} °C{ '\n' }Vérification tous les {wateringPlan(current).interval} jours{ '\n' }Rempotage à vérifier : {dateLabel(new Date(current.repotDate))}</Text>{!!current.wateringAdvice && <Text style={styles.body}>Conseil plant.id : {current.wateringAdvice}</Text>}{current.identificationSource === 'plant.id' && current.identificationConfidence != null && <Text style={styles.status}>Identification plant.id · confiance {Math.round(current.identificationConfidence * 100)} %</Text>}{!!current.caretaker && <Text style={styles.body}>Référent (note) : {current.caretaker}</Text>}</View>
+      {current.lightReading && <LightSummary reading={current.lightReading} />}
       {current.measurement && <Text style={styles.footnote}>Dimensions estimées sur photo le {dateLabel(new Date(current.measurement.measuredAt))}, avec un repère de {current.measurement.referenceCm} cm.</Text>}
       {garden.caretaker && <View style={styles.task}><Text style={styles.sectionTitle}>Personne de confiance</Text><Text style={styles.body}>{garden.caretaker.name}{garden.caretaker.phone ? ` · ${garden.caretaker.phone}` : ''}{garden.caretaker.email ? ` · ${garden.caretaker.email}` : ''}</Text><Button title="Voir les coordonnées et consignes ↗" secondary onPress={() => navigate('caretaker')} /></View>}
       {garden.home && current.position && <ExposureDetails home={garden.home} position={current.position} species={current.species} />}
@@ -478,8 +482,6 @@ const baseStyles = StyleSheet.create({
   content: { width: '100%', alignSelf: 'center', padding: 40, paddingTop: 28, paddingBottom: 48, gap: 24 },
   settingsGrid: { gap: 24, alignItems: 'stretch' }, settingsPanel: { flex: 1, minWidth: 0 },
   panelClose: { alignSelf: 'flex-end' },
-  accountBar: { paddingBottom: 8, borderBottomWidth: 1, borderColor: palette.line, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  accountLink: { minHeight: 44, justifyContent: 'center' }, accountLinkText: { fontSize: 12, color: palette.olive, textDecorationLine: 'underline' },
   title: { fontFamily: fonts.editorial, fontSize: 44, lineHeight: 49, fontWeight: '400', color: palette.ink, letterSpacing: -1.8 },
   desktopTitle: { fontSize: 60, lineHeight: 68, letterSpacing: -3 },
   intro: { gap: 28, paddingVertical: 10 }, introWide: { flexDirection: 'row', alignItems: 'center', gap: 24, paddingVertical: 16 },

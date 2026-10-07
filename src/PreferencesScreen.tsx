@@ -4,12 +4,17 @@ import { TEXT_SCALES } from './accessibility';
 import { useAccessibility } from './AccessibilityProvider';
 import { fonts, palette, useReadableStyles, useThemePalette } from './theme';
 
-export function PreferencesScreen() {
+export function PreferencesScreen({ account }: { account?: { email: string; disabled: boolean; onDisconnect: () => void } } = {}) {
   const { settings, ready, error, update, reset } = useAccessibility();
   const styles = useReadableStyles(baseStyles);
   const colors = useThemePalette();
   return <View style={styles.page}>
     <Text accessibilityRole="header" style={styles.title}>Paramètres</Text>
+    {account && <View style={styles.card}>
+      <Text accessibilityRole="header" style={styles.heading}>Mon compte</Text>
+      <Text selectable style={styles.body}>{account.email}</Text>
+      <Pressable accessibilityRole="button" disabled={account.disabled} accessibilityState={{ disabled: account.disabled }} onPress={account.onDisconnect} style={[styles.button, account.disabled && { opacity: .5 }]}><Text style={styles.buttonText}>Se déconnecter ↗</Text></Pressable>
+    </View>}
     <Text style={styles.body}>Vos préférences s’appliquent à toutes les pages et sont conservées sur cet appareil.</Text>
     <View style={styles.card}>
       <Text accessibilityRole="header" style={styles.heading}>Taille du texte</Text>
