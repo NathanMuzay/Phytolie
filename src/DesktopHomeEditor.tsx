@@ -18,7 +18,7 @@ function EditorButton({ title, onPress, disabled = false, selected = false }: { 
 }
 const displayProperty = (value: string | number) => typeof value === 'number' ? String(Math.round(value*1000)/1000) : value;
 const PropertyValidation = createContext<(id: string, label?: string) => void>(() => {});
-function Property({ label, value, onChange, numeric = false }: { label: string; value: number | string; onChange: (value: string) => boolean; numeric?: boolean }) {
+function Property({ label, value, onChange, numeric = false, allowEmpty = false }: { label: string; value: number | string; onChange: (value: string) => boolean; numeric?: boolean; allowEmpty?: boolean }) {
   const styles = useReadableStyles(baseStyles);
   const [text, setText] = useState(displayProperty(value));
   const [invalid, setInvalid] = useState(false);
@@ -28,13 +28,14 @@ function Property({ label, value, onChange, numeric = false }: { label: string; 
   useEffect(() => () => report(id), [id, report]);
   function update(next: string) {
     setText(next);
-    const complete = !numeric || /^-?\d+(?:[.,]\d*)?$/.test(next.trim()) || (value === '' && !next.trim());
+    const complete = !numeric || /^-?\d+(?:[.,]\d*)?$/.test(next.trim()) || (allowEmpty && !next.trim());
     const accepted = complete && onChange(next);
     attempted.current = { text: next, accepted };
     setInvalid(!accepted); report(id, accepted ? undefined : label);
     return accepted;
   }
   function commit() {
+    if (!attempted.current && text === displayProperty(value)) return;
     const accepted = attempted.current?.text === text ? attempted.current.accepted : update(text);
     if (accepted) setText(numeric && text.trim() ? String(Number(text.replace(',', '.'))) : text);
   }
@@ -313,7 +314,7 @@ export function DesktopHomeEditor({ initial, plants, onApply, onClose }: { initi
           {(['none', 'partial', 'blocked'] as const).map(obstruction => <EditorButton key={obstruction} title={{ none: 'Vue dégagée', partial: 'Obstacle partiel', blocked: 'Vue bloquée' }[obstruction]} selected={windowItem.obstruction === obstruction} onPress={() => updateWindow({ obstruction })} />)}
         </> : <>
           {(['width', 'height', 'northAngle', 'floor', 'month'] as const).map(key => <Property key={key} label={{ width: 'Largeur du plan (m)', height: 'Profondeur du plan (m)', northAngle: 'Nord depuis le haut (°)', floor: 'Étage', month: 'Mois étudié (1–12)' }[key]} value={home[key]} numeric onChange={v => publish({ ...snapshot, home: { ...snapshot.home, [key]: number(v) } })} />)}
-          <Property label="Latitude (facultatif)" value={home.latitude ?? ''} numeric onChange={v => publish({ ...snapshot, home: { ...snapshot.home, latitude: v.trim() ? number(v) : undefined } })} />
+          <Property label="Latitude (facultatif)" value={home.latitude ?? ''} numeric allowEmpty onChange={v => publish({ ...snapshot, home: { ...snapshot.home, latitude: v.trim() ? number(v) : undefined } })} />
           <EditorButton title="Importer un plan en image" onPress={() => void importPlan()} disabled={saving} />
           {home.background && <EditorButton title="Retirer le fond importé" onPress={() => publish({ ...snapshot, home: { ...snapshot.home, background: undefined } })} disabled={saving} />}
           <Text style={styles.hint}>Les pièces servent à placer les plantes. Les fenêtres extérieures, l’orientation et la latitude servent à estimer leur lumière. Les cloisons et portes décrivent l’aménagement ; leurs ombres ne sont pas calculées.</Text>
