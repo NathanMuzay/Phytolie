@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { measureDimensions, validLandmarks, imageFrame, pointFromTouch, pointFromClient, validMeasurement } from '../src/measurement.ts';
+import { measureDimensions, validLandmarks, imageFrame, pointFromTouch, pointFromClient, validMeasurement } from '../src/features/measurement/measurement.ts';
 import { detectDimensions } from '../server/measurement.mjs';
-import { parseGarden } from '../src/model.ts';
+import { parseGarden } from '../src/shared/model.ts';
 const size = { width: 1000, height: 2000 };
 const points = {
   referenceStart: { x: .1, y: .2 }, referenceEnd: { x: .1, y: .4 },

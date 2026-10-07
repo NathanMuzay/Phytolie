@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { wateringTolerance } from '../src/tolerance.ts';
-import { defaultIrrigation, wateringPlan } from '../src/irrigation.ts';
-import { reminderDates, waterPlant } from '../src/model.ts';
+import { wateringTolerance } from '../src/features/plants/tolerance.ts';
+import { defaultIrrigation, wateringPlan } from '../src/features/plants/irrigation.ts';
+import { reminderDates, waterPlant } from '../src/shared/model.ts';
 const now = new Date('2026-09-21T12:00:00Z');
 const plant = { species: 'Monstera deliciosa', pot: 14, temperature: 20, interval: 7, waterAmount: 175, lastWatered: '2026-09-20T12:00:00Z', createdAt: '2026-09-01T12:00:00Z', history: [], irrigation: { ...defaultIrrigation, drainage: 'yes' } };
 test('Margin is bounded and transitions at exact due and deadline instants', () => {

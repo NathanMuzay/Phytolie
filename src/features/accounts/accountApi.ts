@@ -1,4 +1,4 @@
-import { parseGarden, type Garden } from './model.ts';
+import { parseGarden, type Garden } from '../../shared/model.ts';
 export type AccountSession = { token: string; user: { id: string; email: string }; expiresAt: string };
 export class AccountError extends Error {
   status: number;

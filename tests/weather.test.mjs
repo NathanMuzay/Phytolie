@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchCities, fetchWeather, outdoorTemperature } from '../src/weather.ts';
+import { searchCities, fetchWeather, outdoorTemperature } from '../src/services/weather.ts';
 const city = { id: 1, name: 'Paris', latitude: 48.85, longitude: 2.35, country: 'France' };
 test('City lookup preserves alternatives and escapes user input', async t => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => Response.json({ results: [city, { ...city, id: 2, country: 'USA' }] }));

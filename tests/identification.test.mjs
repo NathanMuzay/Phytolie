@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mapSuggestions } from '../src/identification.mjs';
+import { mapSuggestions } from '../src/features/plants/identification.mjs';
 
 const result = suggestions => ({ result: { is_plant: { binary: true }, classification: { suggestions } } });
 test('Provider alternatives are ranked, capped, and retain their own species details', () => {

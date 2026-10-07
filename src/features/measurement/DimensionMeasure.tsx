@@ -1,8 +1,8 @@
-import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
+import { palette, fonts, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { File } from 'expo-file-system';
-import { detectPhotoDimensions } from './plantApi';
+import { detectPhotoDimensions } from '../plants/plantApi';
 import { imageFrame, landmarkNames, measureDimensions, pointFromClient, pointFromTouch, validLandmarks, type ImageSize, type LandmarkName, type Landmarks, type Measurement, type Point } from './measurement';
 
 const labels: Record<LandmarkName, string> = {
@@ -10,7 +10,6 @@ const labels: Record<LandmarkName, string> = {
   plantLeft: 'Feuillage : bord gauche', plantRight: 'Feuillage : bord droit', potLeft: 'Ouverture du pot : bord gauche', potRight: 'Ouverture du pot : bord droit',
 };
 function Action({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .5 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
 }

@@ -1,10 +1,10 @@
 import { DelegationPanel } from './DelegationPanel';
-import type { AccountSession } from './accountApi';
-import type { Plant } from './model';
-import React, { useState } from 'react';
+import type { AccountSession } from '../accounts/accountApi';
+import type { Plant } from '../../shared/model';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { Caretaker } from './model';
-import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
+import type { Caretaker } from '../../shared/model';
+import { palette, fonts, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 const empty: Caretaker = { name: '', phone: '', email: '', notes: '' };
 export function CaretakerScreen({ contact, disabled, onSave, session, plants, initialInvitation, onAccepted }: { session: AccountSession; plants: Plant[]; initialInvitation: string; onAccepted: () => void; contact?: Caretaker; disabled: boolean; onSave: (contact: Caretaker | undefined) => Promise<boolean> }) {
   const palette = useThemePalette();

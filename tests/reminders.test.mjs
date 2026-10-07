@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reminderDates, isReminderTime, parseGarden, waterPlant, daysUntil } from '../src/model.ts';
-import { defaultIrrigation } from '../src/irrigation.ts';
-import { buildReminders, replaceReminders } from '../src/reminders.ts';
+import { reminderDates, isReminderTime, parseGarden, waterPlant, daysUntil } from '../src/shared/model.ts';
+import { defaultIrrigation } from '../src/features/plants/irrigation.ts';
+import { buildReminders, replaceReminders } from '../src/services/reminders.ts';
 const plant = { id: 'a', name: 'Aloe', species: 'Aloe vera', room: 'Salon', height: 30, pot: 14, soil: 'Terreau', temperature: 20, interval: 7, lastWatered: null, createdAt: '2026-01-01T12:00:00Z', repotDate: '2027-01-01T12:00:00Z', caretaker: '', history: [] };
 const now = new Date(2026, 8, 28, 10, 0);
 function gateway(initial = [], failAt = -1, granted = true) {

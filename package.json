@@ -9,7 +9,6 @@
     "expo-image-picker": "~57.0.19",
     "expo-notifications": "~57.0.20",
     "expo-sensors": "~57.0.3",
-    "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -25,7 +24,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "api": "node --experimental-strip-types --env-file-if-exists=.env server.mjs",
+    "api": "node --experimental-strip-types --env-file-if-exists=.env server/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },

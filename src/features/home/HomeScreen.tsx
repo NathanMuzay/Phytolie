@@ -1,17 +1,16 @@
 import { DesktopHomeEditor } from './DesktopHomeEditor';
 import { PlanArtwork } from './PlanArtwork';
 import { removeArea, type EditorSnapshot } from './homeEditor';
-import { useAccessibility } from './AccessibilityProvider';
+import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
 import { rectangleFromDrag, positionAtPoint, type DrawnRectangle, type PlanPoint } from './homeDrawing';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { newHome, validateHome, inside, validPosition, estimatePlacement, exposureLabels, type HomeArea, type HomePlan, type PlantPosition, type HomeWindow, type Exposure } from './home';
-import type { Plant } from './model';
-import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
+import type { Plant } from '../../shared/model';
+import { palette, fonts, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 function Action({ title, onPress, disabled = false, expanded }: { title: string; onPress: () => void; disabled?: boolean; expanded?: boolean }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   return <Pressable accessibilityRole="button" aria-expanded={expanded} accessibilityState={{ disabled, ...(expanded == null ? {} : { expanded }) }} disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .45 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
 }
@@ -34,7 +33,6 @@ function Dropdown({ label, options, value, onChange, disabled = false }: { label
   </View>;
 }
 function Input({ label, value, change, numeric = false, disabled = false }: { label: string; value: string | number; change: (s: string) => void; numeric?: boolean; disabled?: boolean }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [text, setText] = useState(String(value));
   const focused = useRef(false);
@@ -107,18 +105,15 @@ export function PlanCanvas({ home, positions = [], onPoint, drawMode, onDraw, di
   </Pressable></View><Text style={styles.hint}>Traits bleus : fenêtres · points terre cuite : plantes.</Text></View>;
 }
 export function ExposureDetails({ home, position, species }: { home: HomePlan; position: PlantPosition; species: string }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles), estimate = estimatePlacement(home, position, species);
   if (!estimate) return null;
   return <View style={styles.card}><Text style={styles.subtitle}>{estimate.hours == null ? 'Exposition à confirmer' : exposureLabels[estimate.exposure]} · {estimate.score == null ? 'Score non disponible' : `Compatibilité lumière : ${estimate.score}/100`}</Text><Text style={styles.body}>Confiance : {estimate.confidence} · mois étudié : {home.month}</Text>{estimate.reasons.map(reason => <Text key={reason} style={styles.body}>{reason}</Text>)}{estimate.source && <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(estimate.source!)}><Text style={styles.link}>Consulter les besoins de l’espèce (RHS) ↗</Text></Pressable>}</View>;
 }
 function PlacementDetails({ home, position, species, onChange, disabled }: { home: HomePlan; position: PlantPosition; species: string; onChange: (p: PlantPosition | undefined) => void; disabled: boolean }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   return <View style={{ gap: 16 }}><Text style={styles.label}>Besoin lumineux : profil de l’espèce ou choix manuel</Text><View style={styles.row}><Action title="Profil de l’espèce" disabled={disabled} onPress={() => onChange({ ...position, preference: undefined })} />{(['shade', 'indirect', 'sun'] as Exposure[]).map(value => <Action key={value} title={`${position.preference === value ? '✓ ' : ''}${exposureLabels[value]}`} disabled={disabled} onPress={() => onChange({ ...position, preference: value })} />)}</View><ExposureDetails home={home} position={position} species={species} /><Action title="Retirer le pin" disabled={disabled} onPress={() => onChange(undefined)} /></View>;
 }
 export function PlacementPicker({ home, position, species, onChange, disabled = false, embedded = false }: { home: HomePlan; position?: PlantPosition; species: string; onChange: (p: PlantPosition | undefined) => void; disabled?: boolean; embedded?: boolean }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [message, setMessage] = useState('');
   const [coordinates, setCoordinates] = useState(false);
@@ -167,7 +162,6 @@ function PlantDetailsEditor({ home, plant, position, active, disabled, onChange,
 }
 
 export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?: HomePlan; plants: Plant[]; latitude?: number; disabled: boolean; onSave: (home: HomePlan, positions: Record<string, PlantPosition | undefined>, plants: Plant[]) => Promise<boolean> }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const { width: screenWidth } = useWindowDimensions();
   const sideBySide = Platform.OS === 'web' && screenWidth >= 860;

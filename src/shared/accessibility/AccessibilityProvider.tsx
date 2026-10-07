@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
-import { palette } from './appearance';
+import { palette } from '../ui/appearance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCESSIBILITY_KEY, defaultAccessibility, parseAccessibility, type AccessibilitySettings } from './accessibility';
 

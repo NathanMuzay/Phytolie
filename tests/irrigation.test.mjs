@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { wateringPlan, defaultIrrigation } from '../src/irrigation.ts';
-import { waterPlant, dueDate, daysUntil, reminderDates, parseGarden } from '../src/model.ts';
+import { wateringPlan, defaultIrrigation } from '../src/features/plants/irrigation.ts';
+import { waterPlant, dueDate, daysUntil, reminderDates, parseGarden } from '../src/shared/model.ts';
 const now = new Date('2026-09-28T12:00:00Z');
 const plant = { id: 'test', name: 'Test', species: 'Monstera deliciosa', room: 'Salon', soil: 'Terreau', caretaker: '', height: 30, pot: 14, temperature: 20, interval: 7, waterAmount: 175, lastWatered: '2026-09-20T12:00:00Z', createdAt: '2026-09-01T12:00:00Z', repotDate: '2027-09-01T12:00:00Z', history: [], irrigation: { ...defaultIrrigation, drainage: 'yes' } };
 const plan = (props = {}, config = {}) => wateringPlan({ ...plant, ...props, irrigation: { ...plant.irrigation, ...config } }, now);

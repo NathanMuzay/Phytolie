@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { identifyPlant } from '../src/plantApi.ts';
+import { identifyPlant } from '../src/features/plants/plantApi.ts';
 
 test('Scan checks server availability before uploading and preserves identification', async t => {
   const previous = process.env.EXPO_PUBLIC_API_URL;

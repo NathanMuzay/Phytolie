@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newHome, validateHome } from '../src/home.ts';
-import { editOpening, editWall, editWindow, nearestWall, wallLength, pointOnWall, replaceArea, removeArea } from '../src/homeEditor.ts';
-import { parseGarden } from '../src/model.ts';
-import { rectangleFromDrag } from '../src/homeDrawing.ts';
+import { newHome, validateHome } from '../src/features/home/home.ts';
+import { editOpening, editWall, editWindow, nearestWall, wallLength, pointOnWall, replaceArea, removeArea } from '../src/features/home/homeEditor.ts';
+import { parseGarden } from '../src/shared/model.ts';
+import { rectangleFromDrag } from '../src/features/home/homeDrawing.ts';
 const room = { id: 'room', name: 'Salon', kind: 'room', x: 1, y: 1, width: 5, height: 4, shade: 'none', windows: [] };
 const wall = { id: 'wall', start: { x: 8, y: 1 }, end: { x: 8, y: 5 }, control: { x: 10, y: 3 }, thickness: .15 };
 const door = { id: 'door', kind: 'door', areaId: 'room', side: 'bottom', offset: 2, width: .9, reversed: false, outward: false };

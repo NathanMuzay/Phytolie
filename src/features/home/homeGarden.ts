@@ -1,6 +1,6 @@
 import { estimatePlacement, validateHome, validPosition, type HomePlan, type PlantPosition } from './home.ts';
-import { defaultIrrigation } from './irrigation.ts';
-import { type Garden } from './model.ts';
+import { defaultIrrigation } from '../plants/irrigation.ts';
+import { type Garden } from '../../shared/model.ts';
 // Save geometry, pins and the corresponding watering environment together.
 export function gardenWithHome(garden: Garden, home: HomePlan, positions: Record<string, PlantPosition | undefined>): Garden {
   validateHome(home);

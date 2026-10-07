@@ -1,9 +1,9 @@
-import { validateHome, validPosition, type HomePlan, type PlantPosition } from './home.ts';
-import { validMeasurement, type Measurement } from './measurement.ts';
-import { wateringPlan, type Irrigation } from './irrigation.ts';
-import type { City } from './weather.ts';
-import { validLightReading, type LightReading } from './light.ts';
-import { validBotanicalImage, type BotanicalImage, type PhotoMode, type PhotoFit } from './botanical.ts';
+import { validateHome, validPosition, type HomePlan, type PlantPosition } from '../features/home/home.ts';
+import { validMeasurement, type Measurement } from '../features/measurement/measurement.ts';
+import { wateringPlan, type Irrigation } from '../features/plants/irrigation.ts';
+import type { City } from '../services/weather.ts';
+import { validLightReading, type LightReading } from '../features/light/light.ts';
+import { validBotanicalImage, type BotanicalImage, type PhotoMode, type PhotoFit } from '../features/plants/botanical.ts';
 export type Plant = {
   id: string; name: string; species: string; room: string; photo?: string;
   position?: PlantPosition;

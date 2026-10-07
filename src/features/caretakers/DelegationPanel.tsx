@@ -1,9 +1,9 @@
-import { PlantVisual } from './PlantVisual';
-import React, { useEffect, useRef, useState } from 'react';
+import { PlantVisual } from '../plants/PlantVisual';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { acceptDelegation, createDelegation, listDelegations, loadSharedGarden, revokeDelegation, waterSharedPlant, loadCaretakerActivity, type AccountSession, type Delegation, type SharedGarden } from './accountApi';
-import { dueDate, type Plant } from './model';
-import { palette, fonts, useReadableStyles } from './theme';
+import { acceptDelegation, createDelegation, listDelegations, loadSharedGarden, revokeDelegation, waterSharedPlant, loadCaretakerActivity, type AccountSession, type Delegation, type SharedGarden } from '../accounts/accountApi';
+import { dueDate, type Plant } from '../../shared/model';
+import { palette, fonts, useReadableStyles } from '../../shared/ui/theme';
 const statuses = { pending: 'À accepter', 'invitation-expired': 'Invitation expirée', scheduled: 'Accès à venir', active: 'Accès actif', expired: 'Accès terminé', revoked: 'Accès retiré' };
 const dateLabel = (value: string) => new Date(value).toLocaleString('fr-FR');
 function dateValue(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }

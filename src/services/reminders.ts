@@ -1,4 +1,4 @@
-import { addDays, reminderDates, DEFAULT_REMINDER_TIME, isReminderTime, type Plant } from './model.ts';
+import { addDays, reminderDates, DEFAULT_REMINDER_TIME, isReminderTime, type Plant } from '../shared/model.ts';
 export type Reminder = { identifier: string; date: Date; names: string[]; plantIds: string[] };
 export type ScheduledReminder = { identifier: string; content: { data?: Record<string, unknown> } };
 export type ReminderGateway = {

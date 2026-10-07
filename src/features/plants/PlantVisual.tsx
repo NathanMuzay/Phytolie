@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Image, View, Text, Linking, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { botanicalFor, botanicalLabel, validBotanicalImage, preferredPhotoMode, type BotanicalImage, type PhotoMode, type PhotoFit } from './botanical';
-import { palette, useReadableStyles } from './theme';
+import { palette, useReadableStyles } from '../../shared/ui/theme';
 
 const images = {
-  monstera: require('../assets/botanical/monstera.jpg'),
-  aloe: require('../assets/botanical/aloe.jpg'),
-  ficus: require('../assets/botanical/ficus.jpg'),
-  fern: require('../assets/botanical/fern.jpg'),
+  monstera: require('../../../assets/botanical/monstera.jpg'),
+  aloe: require('../../../assets/botanical/aloe.jpg'),
+  ficus: require('../../../assets/botanical/ficus.jpg'),
+  fern: require('../../../assets/botanical/fern.jpg'),
 };
 
 export function PlantVisual({ plant, style }: {

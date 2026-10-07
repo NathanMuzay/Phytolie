@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Platform, useWindowDimensions, type TextStyle, type ViewStyle, type ImageStyle } from 'react-native';
-import { useAccessibility } from './AccessibilityProvider';
-import { readableTextMetrics } from './accessibility';
+import { useAccessibility } from '../accessibility/AccessibilityProvider';
+import { readableTextMetrics } from '../accessibility/accessibility';
 
 import { palette, contrastPalette } from './appearance';
 export { palette } from './appearance';
@@ -13,7 +13,7 @@ export const fonts = {
   editorial: Platform.select({ web: 'Georgia, serif', ios: 'Georgia', default: 'serif' }),
   annotation: Platform.select({ web: 'monospace', ios: 'Menlo', default: 'monospace' }),
 };
-export const botanicalPhoto = require('../assets/botanical/monstera.jpg');
+export const botanicalPhoto = require('../../../assets/botanical/monstera.jpg');
 
 export function useReadableStyles<T extends Record<string, ViewStyle | TextStyle | ImageStyle>>(base: T): T {
   const { width } = useWindowDimensions();

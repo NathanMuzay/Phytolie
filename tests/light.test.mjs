@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validLightReading, medianLux, lightAdvice } from '../src/light.ts';
-import { parseGarden } from '../src/model.ts';
+import { validLightReading, medianLux, lightAdvice } from '../src/features/light/light.ts';
+import { parseGarden } from '../src/shared/model.ts';
 import { openAccounts } from '../server/accounts.mjs';
 
 const reading = { lux: 2500, measuredAt: '2026-10-07T12:00:00Z', method: 'sensor', room: 'Salon', artificialLight: false, curtainsClosed: false };

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { botanicalFor, botanicalLabel, preferredPhotoMode } from '../src/botanical.ts';
-import { parseGarden } from '../src/model.ts';
+import { botanicalFor, botanicalLabel, preferredPhotoMode } from '../src/features/plants/botanical.ts';
+import { parseGarden } from '../src/shared/model.ts';
 
 test('Known species get a matching illustration; other species are explicitly decorative', () => {
   assert.equal(botanicalFor('Monstera deliciosa').key, 'monstera');

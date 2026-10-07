@@ -1,9 +1,9 @@
-import { openDelegations } from './server/delegations.mjs';
+import { openDelegations } from './delegations.mjs';
 import { createServer } from 'node:http';
-import { openAccounts, HttpError } from './server/accounts.mjs';
+import { openAccounts, HttpError } from './accounts.mjs';
 import { resolve } from 'node:path';
-import { identifyImage, IdentificationError } from './server/identification.mjs';
-import { detectDimensions, MeasurementError } from './server/measurement.mjs';
+import { identifyImage, IdentificationError } from './identification.mjs';
+import { detectDimensions, MeasurementError } from './measurement.mjs';
 
 const PORT = Number(process.env.API_PORT || 8787);
 const API_KEY = process.env.PLANT_ID_API_KEY;

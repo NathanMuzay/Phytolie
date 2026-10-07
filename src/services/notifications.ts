@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { Plant, DEFAULT_REMINDER_TIME } from './model';
+import { Plant, DEFAULT_REMINDER_TIME } from '../shared/model';
 import { replaceReminders } from './reminders';
 
 Notifications.setNotificationHandler({

@@ -5,8 +5,8 @@ import { validateHome, type HomeArea, type HomePlan, type HomeWall, type HomeWin
 import { rectangleFromDrag, type PlanPoint } from './homeDrawing';
 import { checkedSnapshot, editOpening, editWall, editWindow, editorId, nearestWall, pointOnWall, removeArea, replaceArea, roomWall, wallLength, type EditorSnapshot } from './homeEditor';
 import { structureElements } from './PlanArtwork';
-import { palette, useReadableStyles, useThemePalette } from './theme';
-import type { Plant } from './model';
+import { palette, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
+import type { Plant } from '../../shared/model';
 const svg = React.createElement;
 type Tool = 'select' | 'room' | 'garden' | 'wall' | 'curve' | 'door' | 'window' | 'pan';
 type Drag = { origin: PlanPoint; snapshot: EditorSnapshot; key: string; handle?: string; view: { x: number; y: number; width: number; height: number } };

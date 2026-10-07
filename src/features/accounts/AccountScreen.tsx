@@ -1,9 +1,8 @@
-import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
-import React, { useState } from 'react';
+import { palette, fonts, useReadableStyles } from '../../shared/ui/theme';
+import { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { authenticate, type AccountSession } from './accountApi';
 export function AccountScreen({ onConnected, onPreferences }: { onConnected: (session: AccountSession) => void; onPreferences: () => void }) {
-  const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [confirmation, setConfirmation] = useState('');

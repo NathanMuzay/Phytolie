@@ -1,4 +1,4 @@
-import { validLandmarks, measureDimensions, landmarkNames } from '../src/measurement.ts';
+import { validLandmarks, measureDimensions, landmarkNames } from '../src/features/measurement/measurement.ts';
 
 export class MeasurementError extends Error {
   constructor(status, message) { super(message); this.status = status; }

@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { mapSuggestions } from '../src/identification.mjs';
+import { mapSuggestions } from '../src/features/plants/identification.mjs';
 
 export class IdentificationError extends Error {
   constructor(status, message) { super(message); this.status = status; }

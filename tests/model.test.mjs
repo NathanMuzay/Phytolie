@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dueDate, daysUntil, waterPlant, reminderDates, parseGarden, sortPlantsByUrgency } from '../src/model.ts';
-import { careDefaults, estimateWaterAmount } from '../src/care.ts';
+import { dueDate, daysUntil, waterPlant, reminderDates, parseGarden, sortPlantsByUrgency } from '../src/shared/model.ts';
+import { careDefaults, estimateWaterAmount } from '../src/features/plants/care.ts';
 
 const plant = { id: '1', name: 'Fern', species: 'Unknown', room: 'Salon', height: 30, pot: 14, soil: 'Terreau', temperature: 20, interval: 7, lastWatered: null, createdAt: '2026-09-01T12:00:00Z', repotDate: '2027-09-01T12:00:00Z', caretaker: '', history: [] };
 test('A missing confirmation never moves the watering deadline', () => {

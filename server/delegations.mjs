@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { waterPlant } from '../src/model.ts';
+import { waterPlant } from '../src/shared/model.ts';
 const digest = value => createHash('sha256').update(value).digest('hex');
 export function openDelegations(accounts, HttpError) {
   const { db, authenticate } = accounts;

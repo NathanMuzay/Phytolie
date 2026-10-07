@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useAccessibility } from './AccessibilityProvider';
+import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
 import { PlantVisual } from './PlantVisual';
-import { daysUntil, dueDate, type Plant } from './model';
+import { daysUntil, dueDate, type Plant } from '../../shared/model';
 import { wateringPlan } from './irrigation';
 import { wateringTolerance } from './tolerance';
-import { fonts, palette, useReadableStyles } from './theme';
+import { fonts, palette, useReadableStyles } from '../../shared/ui/theme';
 
 const dateLabel = (date: Date) => date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 type Props = {

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { LightSensor } from 'expo-sensors';
 import { lightAdvice, medianLux, validLux, type LightReading } from './light';
-import { palette, useReadableStyles } from './theme';
+import { palette, useReadableStyles } from '../../shared/ui/theme';
 
 export function LightSummary({ reading }: { reading: LightReading }) {
   const styles = useReadableStyles(baseStyles);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rectangleFromDrag, positionAtPoint } from '../src/homeDrawing.ts';
-import { validateHome, newHome } from '../src/home.ts';
+import { rectangleFromDrag, positionAtPoint } from '../src/features/home/homeDrawing.ts';
+import { validateHome, newHome } from '../src/features/home/home.ts';
 test('Drawing in either direction produces the same valid room', () => {
   const bounds = { width: 20, height: 15 };
   const a = { x: 1.23, y: 2.34 }, b = { x: 6.78, y: 7.89 };

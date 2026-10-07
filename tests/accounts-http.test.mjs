@@ -8,7 +8,7 @@ import { once } from 'node:events';
 
 test('Real HTTP account lifecycle: registration, private collection, conflict, logout and CORS', { timeout: 20000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'folia-http-'));
-  const child = spawn(process.execPath, ['--experimental-strip-types', 'server.mjs'], { env: { ...process.env, API_PORT: '0', OPENAI_API_KEY: '', FOLIA_DB_PATH: join(dir, 'test.sqlite') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['--experimental-strip-types', 'server/index.mjs'], { env: { ...process.env, API_PORT: '0', OPENAI_API_KEY: '', FOLIA_DB_PATH: join(dir, 'test.sqlite') }, stdio: ['ignore', 'pipe', 'pipe'] });
   try {
     const base = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Server start timeout')), 5000);

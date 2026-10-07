@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultAccessibility, parseAccessibility, TEXT_SCALES, readableTextMetrics } from '../src/accessibility.ts';
-import { palette, contrastPalette } from '../src/appearance.ts';
+import { defaultAccessibility, parseAccessibility, TEXT_SCALES, readableTextMetrics } from '../src/shared/accessibility/accessibility.ts';
+import { palette, contrastPalette } from '../src/shared/ui/appearance.ts';
 
 test('Preferences survive storage roundtrip, including 200% text and disabled OS animations', () => {
   const chosen = { textScale: 2, highContrast: true, simpleFont: true, spaciousText: true, reduceMotion: false };

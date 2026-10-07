@@ -1,4 +1,4 @@
-import { validLandmarks, type Landmarks, type ImageSize } from './measurement.ts';
+import { validLandmarks, type Landmarks, type ImageSize } from '../measurement/measurement.ts';
 import type { BotanicalImage } from './botanical.ts';
 export type PlantIdentification = {
   commonName: string;

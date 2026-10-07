@@ -3,7 +3,7 @@ import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'no
 import { promisify } from 'node:util';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { parseGarden } from '../src/model.ts';
+import { parseGarden } from '../src/shared/model.ts';
 const derive = promisify(scrypt);
 const digest = token => createHash('sha256').update(token).digest('hex');
 export class HttpError extends Error {

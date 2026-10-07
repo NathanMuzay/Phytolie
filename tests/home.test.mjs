@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newHome, validateHome, validPosition, estimatePlacement, speciesLight } from '../src/home.ts';
-import { gardenWithHome } from '../src/homeGarden.ts';
-import { parseGarden } from '../src/model.ts';
+import { newHome, validateHome, validPosition, estimatePlacement, speciesLight } from '../src/features/home/home.ts';
+import { gardenWithHome } from '../src/features/home/homeGarden.ts';
+import { parseGarden } from '../src/shared/model.ts';
 const window = { id: 'w1', wall: 'bottom', offset: 3, width: 3, sill: 0, height: 3, filtered: false, obstruction: 'none' };
 const room = { id: 'salon', name: 'Salon', kind: 'room', x: 0, y: 0, width: 6, height: 5, windows: [window], shade: 'none' };
 const outdoor = { id: 'jardin', name: 'Jardin', kind: 'garden', x: 6, y: 0, width: 6, height: 5, windows: [], shade: 'none' };
@@ -86,7 +86,7 @@ test('Placement fills environment and room without mutating or discarding wateri
 });
 
 test('Local import transfers a missing home or removes pins from a different home', async () => {
-  const { mergeLocalPlants } = await import('../src/accountApi.ts');
+  const { mergeLocalPlants } = await import('../src/features/accounts/accountApi.ts');
   const local = gardenWithHome(garden, home, { '1': near });
   const first = mergeLocalPlants({ plants: [], reminders: false }, local);
   assert.deepEqual(first.home, home); assert.deepEqual(first.plants[0].position, near);

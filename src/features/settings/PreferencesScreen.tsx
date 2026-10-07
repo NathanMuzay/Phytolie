@@ -1,8 +1,7 @@
-import React from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { TEXT_SCALES } from './accessibility';
-import { useAccessibility } from './AccessibilityProvider';
-import { fonts, palette, useReadableStyles, useThemePalette } from './theme';
+import { TEXT_SCALES } from '../../shared/accessibility/accessibility';
+import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
+import { fonts, palette, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 
 export function PreferencesScreen({ account }: { account?: { email: string; disabled: boolean; onDisconnect: () => void } } = {}) {
   const { settings, ready, error, update, reset } = useAccessibility();
