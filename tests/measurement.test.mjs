@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { measureDimensions, validLandmarks, imageFrame, pointFromTouch, validMeasurement } from '../src/measurement.ts';
+import { measureDimensions, validLandmarks, imageFrame, pointFromTouch, pointFromClient, validMeasurement } from '../src/measurement.ts';
 import { detectDimensions } from '../server/measurement.mjs';
 import { parseGarden } from '../src/model.ts';
 const size = { width: 1000, height: 2000 };
@@ -39,6 +39,23 @@ test('Maps touches through letterboxing, rejects taps in padding and works after
   assert.deepEqual(pointFromTouch(200, 200, { width: 2000, height: 1000 }, frame), { x: .5, y: .5 });
   assert.equal(pointFromTouch(200, 50, { width: 2000, height: 1000 }, frame), null);
   assert.equal(pointFromTouch(0, 0, size, { width: 0, height: 0 }), null);
+});
+test('Browser mouse clicks use the photo surface bounds after scroll and resize', () => {
+  const bounds = { left: 120, top: 650, width: 400, height: 360 };
+  assert.deepEqual(pointFromClient(320, 830, size, bounds), { x: .5, y: .5 });
+  // Portrait photo has horizontal padding; this click must not place a point.
+  assert.equal(pointFromClient(150, 830, size, bounds), null);
+  const moved = { ...bounds, left: 40, top: 120, width: 600, height: 360 };
+  assert.deepEqual(pointFromClient(340, 300, size, moved), { x: .5, y: .5 });
+  assert.equal(pointFromClient(NaN, 830, size, bounds), null);
+  assert.equal(pointFromClient(320, 830, size, { ...bounds, width: 0 }), null);
+});
+test('Eight browser clicks reconstruct all landmarks and permit manual dimensions without an API', () => {
+  const bounds = { left: 80, top: 450, width: 500, height: 400 };
+  const displayed = imageFrame(size, bounds);
+  const placed = Object.fromEntries(Object.entries(points).map(([key, p]) => [key, pointFromClient(bounds.left+displayed.left+p.x*displayed.width, bounds.top+displayed.top+p.y*displayed.height, size, bounds)]));
+  assert.deepEqual(placed, points);
+  assert.deepEqual(measureDimensions(placed, size, 20), { height: 60, width: 30, pot: 15 });
 });
 test('Vision request keeps secret server-side, uses structured output and rejects bad input before calling provider', async () => {
   let calls = 0;

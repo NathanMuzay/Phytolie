@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { File } from 'expo-file-system';
 import { detectPhotoDimensions } from './plantApi';
-import { imageFrame, landmarkNames, measureDimensions, pointFromTouch, validLandmarks, type ImageSize, type LandmarkName, type Landmarks, type Measurement, type Point } from './measurement';
+import { imageFrame, landmarkNames, measureDimensions, pointFromClient, pointFromTouch, validLandmarks, type ImageSize, type LandmarkName, type Landmarks, type Measurement, type Point } from './measurement';
 
 const labels: Record<LandmarkName, string> = {
   referenceStart: 'Début du repère', referenceEnd: 'Fin du repère', plantTop: 'Sommet de la plante', soilLevel: 'Niveau du terreau',
@@ -32,8 +32,10 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy, token }: { 
   const inFlight = useRef(false);
   useEffect(() => {
     mounted.current = true;
-    Image.getSize(photo, (width, height) => { if (mounted.current) setSize({ width, height }); }, () => { if (mounted.current) setMessage('Photo illisible. Choisissez une autre image.'); });
-    return () => { mounted.current = false; };
+    let cancelled = false;
+    setSize(null); setPoints({}); setActive('referenceStart');
+    Image.getSize(photo, (width, height) => { if (!cancelled) setSize({ width, height }); }, () => { if (!cancelled) setMessage('Photo illisible. Choisissez une autre image.'); });
+    return () => { cancelled = true; mounted.current = false; };
   }, [photo]);
   const length = Number(referenceCm.replace(',', '.'));
   const canCalibrate = Number.isFinite(length) && length >= 1 && length <= 200;
@@ -64,6 +66,11 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy, token }: { 
     const index = landmarkNames.indexOf(active);
     if (index < landmarkNames.length - 1) setActive(landmarkNames[index + 1]);
   }
+  function placeOnPhoto(point: Point | null) {
+    if (disabled || running) return;
+    if (point) place(point);
+    else setMessage('Cliquez ou touchez dans la photo, pas dans les bandes autour de l’image.');
+  }
   return <View style={styles.card}>
     <Text style={styles.title}>Dimensions sur photo</Text>
     <Text style={styles.body}>Photo de face : plante entière, pot et repère connu (règle ou A4) à la même distance. Terreau et bords du pot visibles.</Text>
@@ -81,12 +88,19 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy, token }: { 
       <Text style={styles.hint}>Choisissez un point ci-dessous, puis touchez sa position sur la photo. Après chaque placement, le point suivant est sélectionné. Hauteur : du terreau au sommet ; diamètre : ouverture du pot de culture, hors cache-pot.</Text>
       <View style={styles.options}>{landmarkNames.map((key, index) => <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: active === key }} disabled={disabled || running} onPress={() => setActive(key)} style={[styles.option, active === key && styles.selected]}><Text style={styles.optionText}>{index + 1}. {labels[key]}{points[key] ? ' ✓' : ''}</Text></Pressable>)}</View>
       <Text style={styles.label}>À placer : {labels[active]}</Text>
-      <View onLayout={event => setFrame({ width: event.nativeEvent.layout.width, height: 360 })} style={styles.photo}>
-        <Image source={{ uri: photo }} resizeMode="contain" style={StyleSheet.absoluteFill} />
+      <View onLayout={event => setFrame({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} style={styles.photo}>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={{ uri: photo }} resizeMode="contain" style={StyleSheet.absoluteFill} /></View>
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {rect && landmarkNames.map((key, index) => points[key] && <View key={key} style={[styles.dot, { left: rect.left + points[key]!.x * rect.width - 10, top: rect.top + points[key]!.y * rect.height - 10, backgroundColor: active === key ? '#AC461C' : palette.olive }]}><Text style={styles.dotText}>{index + 1}</Text></View>)}
         </View>
-        <Pressable accessibilityLabel={`Placer : ${labels[active]}`} disabled={disabled || running || !size} style={StyleSheet.absoluteFill} onPress={event => { if (!size) return; const p = pointFromTouch(event.nativeEvent.locationX, event.nativeEvent.locationY, size, frame); if (p) place(p); }} />
+        {Platform.OS === 'web' ? React.createElement('button', {
+          type: 'button', 'aria-label': `Placer : ${labels[active]}`, disabled: disabled || running || !size,
+          style: { position: 'absolute', inset: 0, width: '100%', height: '100%', padding: 0, margin: 0, border: 0, background: 'transparent', cursor: disabled || running || !size ? 'default' : 'crosshair', touchAction: 'manipulation' },
+          onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+            if (!size || event.detail === 0) return;
+            placeOnPhoto(pointFromClient(event.clientX, event.clientY, size, event.currentTarget.getBoundingClientRect()));
+          },
+        }) : <Pressable accessibilityLabel={`Placer : ${labels[active]}`} disabled={disabled || running || !size} style={StyleSheet.absoluteFill} onPress={event => { if (size) placeOnPhoto(pointFromTouch(event.nativeEvent.locationX, event.nativeEvent.locationY, size, frame)); }} />}
       </View>
       <Action title="Recommencer les points" disabled={disabled || running} onPress={() => { setPoints({}); setActive('referenceStart'); setMessage(''); setMethod('guided'); }} />
       {!!validation && <Text accessibilityRole="alert" style={styles.error}>{validation}</Text>}

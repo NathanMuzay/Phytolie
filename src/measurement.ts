@@ -48,3 +48,10 @@ export function pointFromTouch(x: number, y: number, image: ImageSize, frame: Im
   const point = { x: (x - rect.left) / rect.width, y: (y - rect.top) / rect.height };
   return point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1 ? point : null;
 }
+
+// Browser clicks expose client coordinates, not React Native touch locations.
+// Read the clicked surface's bounds each time, including after scrolling/resizing.
+export function pointFromClient(x: number, y: number, image: ImageSize, bounds: ImageSize & { left: number; top: number }): Point | null {
+  if (![x, y, bounds.left, bounds.top].every(Number.isFinite)) return null;
+  return pointFromTouch(x - bounds.left, y - bounds.top, image, bounds);
+}
