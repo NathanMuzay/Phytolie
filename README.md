@@ -62,7 +62,7 @@ Ouvrez Expo Go sur Android et scannez le QR code affiché dans le terminal. Gard
 npm run web
 ```
 
-Ouvrez l’adresse affichée dans le terminal (généralement `http://localhost:8081`). L’aperçu web permet de tester le carnet et les formulaires ; les notifications locales nécessitent Android. En mode local, la sauvegarde web est propre au navigateur et à l’adresse utilisés. Avec un compte, la collection est conservée par le serveur Folia.
+Ouvrez l’adresse affichée dans le terminal (généralement `http://localhost:8081`). L’aperçu web permet de tester le carnet et les formulaires ; les notifications locales nécessitent Android. La connexion ou l’inscription est obligatoire pour accéder à la collection, conservée par le serveur Folia. Les paramètres d’accessibilité restent disponibles avant connexion.
 
 **Émulateur Android :** installez Android Studio, créez un appareil virtuel dans Device Manager et démarrez-le, puis :
 
@@ -78,7 +78,7 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 2. Créez un compte avec une adresse e-mail et un mot de passe de 12 à 128 caractères. Aucune clé de service supplémentaire n’est nécessaire.
 3. Dans « Mon espace », utilisez « Importer mes plantes locales » pour copier vos anciennes plantes dans le compte. Les photos sont transférées ; la collection locale reste intacte. Relancer l’import ne duplique pas les identifiants déjà présents.
 4. Connectez-vous sur un autre appareil pointant vers **le même serveur** pour retrouver vos plantes. « Recharger la collection » récupère les modifications faites ailleurs. Si une autre session a modifié la collection, une sauvegarde obsolète est refusée au lieu d’écraser ses changements.
-5. « Se déconnecter » révoque la session, efface ses rappels programmés sur cet appareil et revient à la collection locale. Un autre compte ne voit pas les fiches du précédent.
+5. « Se déconnecter » révoque la session, efface ses rappels programmés sur cet appareil et revient à l’écran de connexion. Un autre compte ne voit pas les fiches du précédent.
 
 Les comptes sont stockés dans `data/folia.sqlite`, exclu de Git. Le chemin peut être changé avec `FOLIA_DB_PATH`. Sauvegardez ce fichier **serveur arrêté** pour conserver comptes et collections. Supprimer le fichier supprime les comptes ; réinstaller l’application mobile ne supprime pas les collections du serveur. Les photos sont stockées dans la collection (limite de 200 plantes et de 24 Mo par compte).
 
@@ -86,7 +86,7 @@ Les mots de passe sont hachés avec scrypt et un sel aléatoire. Les jetons de s
 
 Le mode compte exige une connexion au serveur pour charger ou modifier sa collection ; il n’existe pas encore de file de synchronisation hors ligne. Les modifications locales ne sont jamais importées automatiquement. Les réglages d’entretien et de rappels appartiennent au compte, mais l’autorisation de notification reste propre à chaque téléphone.
 
-Cette configuration HTTP est destinée au développement sur un réseau local de confiance. Pour exposer les comptes sur Internet, déployez le serveur derrière HTTPS et configurez `EXPO_PUBLIC_API_URL` avec cette adresse ; les comptes ne sont pas hébergés automatiquement par ce projet. Le proxy d’identification reste accessible au mode local : ne l’exposez pas publiquement sans contrôle d’accès et quotas adaptés.
+Cette configuration HTTP est destinée au développement sur un réseau local de confiance. Pour exposer les comptes sur Internet, déployez le serveur derrière HTTPS et configurez `EXPO_PUBLIC_API_URL` avec cette adresse ; les comptes ne sont pas hébergés automatiquement par ce projet. Les API de collection, de délégation, d’identification et de mesure exigent une session valide. Prévoyez également des quotas d’identification adaptés avant une exposition publique.
 
 ### En cas de difficulté
 
@@ -115,7 +115,7 @@ Dans « Ajouter une plante » ou « Modifier la fiche », ajoutez une photo, pui
 2. Décrivez le segment de référence et sa longueur réelle : par défaut, le grand côté vertical d’une feuille A4 (29,7 cm).
 3. Appuyez sur **Détecter automatiquement les points**. Le serveur utilise l’API de vision OpenAI et renvoie huit points normalisés. La hauteur du terreau au sommet, la largeur du feuillage et le diamètre de l’ouverture du pot sont ensuite calculés par rapport au repère.
 4. Vérifiez les points numérotés : choisissez un point puis touchez la photo pour le corriger. Vous pouvez aussi placer les huit points directement, **sans clé API, sans réseau et sans analyse IA**.
-5. Appuyez sur **Appliquer les dimensions à la fiche**, puis enregistrez la plante. Les valeurs restent modifiables ; leur origine et leur date sont conservées en mode local et en mode compte. Modifier une dimension manuellement retire l’attribution à la mesure photo.
+5. Appuyez sur **Appliquer les dimensions à la fiche**, puis enregistrez la plante. Les valeurs restent modifiables ; leur origine et leur date sont conservées avec la collection du compte. Modifier une dimension manuellement retire l’attribution à la mesure photo.
 
 Pour la détection automatique, ajoutez ces paramètres au `.env` du serveur et redémarrez `npm run api` :
 
@@ -160,7 +160,8 @@ La marge aide à prioriser les vérifications ; elle ne prédit ni la survie ni 
 - Fréquence personnalisée de vérification de l’arrosage, entre 1 et 90 jours.
 - Écran « À faire », confirmation « J’ai arrosé » et historique.
 - Compte utilisateur : inscription, connexion, déconnexion et collection privée sauvegardée sur le serveur.
-- Mode local persistant, import vers un compte et suppression des plantes avec confirmation.
+- Connexion obligatoire, import des anciens carnets locaux et suppression des plantes avec confirmation.
+- Personne de confiance : invitations temporaires, plantes sélectionnées, consignes, confirmations d’arrosage et révocation.
 - Rappels locaux Android à l’heure choisie dans « Mon espace » (09:00 par défaut), regroupés par jour et répétés tant que l’arrosage n’est pas confirmé.
 - Changer l’heure remplace les anciennes notifications ; confirmer l’arrosage relance le calendrier à la prochaine échéance. Toucher une notification ouvre « À faire ».
 - Date de contrôle du rempotage et note de personne référente en cas d’absence.
@@ -179,14 +180,14 @@ La météo provient d’[Open-Meteo](https://open-meteo.com/) et la recherche de
 
 Le scan de pièce, la compatibilité avant achat et le diagnostic de maladies restent à développer. La mesure des dimensions nécessite un repère de taille connue dans la photo ; la marge de retard est une estimation indicative, pas une garantie de survie.
 
-Les notifications sont regroupées par jour et programmées pour les **30 prochains jours calendaires**, puis renouvelées à chaque ouverture, retour au premier plan, changement d’heure de rappel et modification du carnet. Une heure déjà passée commence au lendemain. L’heure suit le fuseau local au moment de la programmation : rouvrez l’application après un voyage. Au passage à l’heure d’été, une heure inexistante est décalée vers l’heure valide suivante, puis l’heure habituelle reprend le lendemain. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. La personne référente est une simple note ; aucune invitation ni délégation distante n’est envoyée.
+Les notifications sont regroupées par jour et programmées pour les **30 prochains jours calendaires**, puis renouvelées à chaque ouverture, retour au premier plan, changement d’heure de rappel et modification du carnet. Une heure déjà passée commence au lendemain. L’heure suit le fuseau local au moment de la programmation : rouvrez l’application après un voyage. Au passage à l’heure d’été, une heure inexistante est décalée vers l’heure valide suivante, puis l’heure habituelle reprend le lendemain. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. Le champ référent de chaque plante reste une note. Les accès temporaires se gèrent dans « Personne de confiance ».
 
-En mode local, les fiches et photos restent sur l’appareil, sans synchronisation. En mode compte, elles sont stockées sur le serveur Folia et retrouvées à la connexion ; les modifications des autres appareils sont récupérées par rechargement explicite. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet local, mais pas la collection du compte sur le serveur. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
+Les fiches et photos sont stockées sur le serveur Folia et retrouvées à la connexion ; les modifications des autres appareils sont récupérées par rechargement explicite. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet local, mais pas la collection du compte sur le serveur. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
 
 ## Structure
 
 ```text
-App.tsx                 Écrans et sauvegarde locale ou liée au compte
+App.tsx                 Écrans, connexion obligatoire et sauvegarde du compte
 src/AccountScreen.tsx   Inscription et connexion
 src/accountApi.ts       Client des comptes et import local
 src/model.ts            Modèle de données, échéances et historique
@@ -202,6 +203,8 @@ server/measurement.mjs  Analyse des repères par vision, clé côté serveur
 src/weather.ts          Géocodage et température extérieure Open-Meteo
 server.mjs              API des comptes et proxy vers plant.id
 server/accounts.mjs     SQLite, mots de passe, sessions et collections privées
+server/delegations.mjs  Invitations, contrôle des accès temporaires et journal des arrosages
+src/DelegationPanel.tsx Gestion des invitations et espace d’entretien partagé
 tests/model.test.mjs     Tests des règles de suivi
 .env.example            Exemple de configuration sans secret
 app.json                Configuration Expo et permissions Android
@@ -235,7 +238,15 @@ Documentation : [plant.id](https://www.kindwise.com/plant-id), [API v3 plant.id]
 
 Sur ordinateur, les textes sont agrandis à partir de 860 px de largeur. Chaque écran possède une adresse : `#/`, `#/a-faire`, `#/mon-espace`, `#/personne-de-confiance`, `#/compte`, `#/plantes/ajouter`, `#/plantes/<id>` et `#/plantes/<id>/modifier`. Les boutons précédent/suivant du navigateur et le rechargement conservent la page demandée. Hors des champs de saisie, **Ctrl+Z** (ou **Cmd+Z**) revient à l’accueil ; dans un champ, il continue d’annuler la saisie.
 
-La page **Personne de confiance** permet d’enregistrer un nom, un téléphone, un e-mail et des consignes pour toute la collection. Ces informations suivent la sauvegarde locale ou celle du compte connecté et sont accessibles depuis les fiches plantes. Elles n’envoient aucun message et ne donnent pas accès au compte.
+La page **Personne de confiance** permet d’enregistrer un nom, un téléphone, un e-mail et des consignes, puis de créer un accès temporaire :
+
+1. Renseignez l’adresse e-mail de la personne et les consignes. Sélectionnez les plantes à confier et les dates (format `AAAA-MM-JJ`, dernier jour inclus, dans le fuseau de votre appareil). La période est limitée à 90 jours.
+2. Cliquez sur **Créer une invitation**. Sur le Web, partagez le lien affiché ; sur mobile, partagez le code. Aucun e-mail n’est envoyé automatiquement. Le lien ou code apparaît uniquement à la création ; s’il est perdu, révoquez l’invitation et créez-en une nouvelle.
+3. La personne se connecte ou s’inscrit avec l’adresse prévue. Un lien Web conserve le code pendant la connexion ; sur mobile, elle colle le code dans **Accepter une invitation**. L’invitation est à usage unique et expire au bout de 7 jours ou à la fin de la période si elle arrive avant.
+4. Pendant la période autorisée, **Plantes qui me sont confiées → Voir les plantes et consignes** affiche uniquement les plantes choisies, leurs échéances et les consignes. **J’ai arrosé** met à jour la collection du propriétaire. Une confirmation répétée le même jour UTC ne duplique pas l’historique. Les opérations sont attribuées au compte invité dans **Arrosages par les personnes de confiance**.
+5. **Retirer cet accès** révoque immédiatement les autorisations sur le serveur. La fin de période bloque aussi les lectures et confirmations ; un espace déjà ouvert se rafraîchit toutes les 30 secondes. Le propriétaire recharge sa collection pour voir les arrosages distants ; une sauvegarde obsolète est refusée.
+
+La personne invitée ne peut ni modifier les fiches, ni supprimer les plantes, ni accéder aux réglages du propriétaire ou à son plan complet. Les invitations, leur acceptation et les arrosages sont conservés dans SQLite ; seuls les condensats des codes sont stockés. Le partage nécessite le même serveur pour les deux comptes. L’adresse e-mail des comptes n’est pas encore vérifiée : l’acceptation exige à la fois le code secret et un compte avec l’adresse prévue, sans prouver la possession de la boîte e-mail. Les anciens carnets locaux restent importables après connexion ; le mode sans compte n’est plus proposé.
 
 ### Plan 2D du logement et exposition
 
@@ -245,7 +256,7 @@ Ouvrez **Ma maison** (`#/ma-maison`) :
 2. Choisissez **Dessiner une pièce** ou **Dessiner un jardin**, puis cliquez-glissez sur le plan pour tracer une zone rectangulaire. Un aperçu affiche ses dimensions ; relâchez pour la créer. Le tracé s’aligne tous les 10 cm, dans les deux sens ; Échap annule le geste. Vous pouvez tracer plusieurs zones avec le même outil, puis choisir **Sélectionner** pour modifier leur nom, position et dimensions. Les formulaires de coordonnées restent disponibles. Les zones doivent rester dans le plan sans se chevaucher.
 3. Ajoutez les fenêtres extérieures sur le mur approprié, leur largeur, leur position et leur hauteur au-dessus du sol. Renseignez voilages et obstacles extérieurs ; pour le jardin, choisissez l’ombrage.
 4. Dans **Placer les plantes**, sélectionnez une plante puis cliquez sur le plan ou maintenez le bouton de la souris et glissez pour la placer. Un pin suit le geste ; relâchez dans une pièce ou le jardin pour valider. Un dépôt hors zone conserve l’ancien emplacement et Échap annule. Les coordonnées restent une option. Indiquez la hauteur du feuillage.
-5. Cliquez sur **Enregistrer le plan et les emplacements**. Le plan et les pins suivent la sauvegarde locale ou le compte ; les pièces, intérieur/extérieur et expositions calculables sont mis à jour ensemble. Déplacer ou supprimer une zone peut retirer les pins devenus invalides. Retirer un pin conserve les derniers paramètres d’entretien, qui restent modifiables dans la fiche.
+5. Cliquez sur **Enregistrer le plan et les emplacements**. Le plan et les pins suivent la sauvegarde du compte ; les pièces, intérieur/extérieur et expositions calculables sont mis à jour ensemble. Déplacer ou supprimer une zone peut retirer les pins devenus invalides. Retirer un pin conserve les derniers paramètres d’entretien, qui restent modifiables dans la fiche.
 
 Un plan **JPEG, PNG ou WebP** (environ 3 Mo maximum) peut être importé en fond ; il est ajusté aux dimensions saisies, puis doit être retracé. Cette version ne reconnaît pas automatiquement les murs et n’importe pas directement les PDF : exportez la page en image. Un seul niveau est représenté par plan.
 
@@ -261,7 +272,7 @@ Lors de l’import de la collection locale vers un compte, le plan local est aus
 
 La page **Ma maison** présente d’abord deux panneaux : **Dessin de la maison** et **Placer les plantes**, côte à côte sur ordinateur et empilés sur mobile. **Plus de détails** déplie les réglages sous les plans (orientation, étage, mois, latitude, fenêtres, ombrage et comparaison lumineuse). Les champs de position et de dimensions sont masqués par défaut et s’ouvrent uniquement avec **Utiliser les coordonnées**, également dans le formulaire d’une plante.
 
-Dans **Plus de détails**, les **pièces et jardins** et les **plantes** disposent de deux listes distinctes avec leurs propres barres de défilement. Toutes les zones proposent leur nom, leurs dimensions, leurs fenêtres ou leur ombrage ; toutes les plantes proposent leur nom, leur espèce, leurs dimensions, leur pot, leur température, leur terreau, leur zone et leurs besoins lumineux. Les coordonnées de position restent masquées derrière leur bouton. **Enregistrer le plan et les emplacements** sauvegarde également les modifications des fiches plantes ; les photos et historiques sont conservés.
+Dans **Plus de détails**, les **pièces et jardins** et les **plantes** disposent chacun d’un menu déroulant par nom. Seules les informations de la zone et de la plante sélectionnées sont affichées ; le premier élément est affiché par défaut. La sélection suit aussi les clics sur les zones du plan et le choix de la plante à placer. La zone sélectionnée propose son nom, ses dimensions, ses fenêtres ou son ombrage ; la plante sélectionnée propose son nom, son espèce, ses dimensions, son pot, sa température, son terreau, sa zone et ses besoins lumineux. Les coordonnées de position restent masquées derrière leur bouton. **Enregistrer le plan et les emplacements** sauvegarde également les modifications des fiches plantes ; les photos et historiques sont conservés.
 
 ### Paramètres et lisibilité
 

@@ -26,7 +26,7 @@ export function PlantVisual({ plant, style }: {
       resizeMode={usePhoto ? plant.photoFit ?? 'contain' : 'contain'}
       accessibilityLabel={usePhoto ? `Photo personnelle : ${plant.species}` : botanicalLabel(plant)}
       onError={() => { if (remote) setFailedUrl(reference.url); }}
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
     /></View>
     {remote && <Text style={styles.credit}>Photo : {reference.author || 'source plant.id'} · {reference.license}
       {reference.licenseUrl && <Text accessibilityRole="link" style={styles.link} onPress={() => void Linking.openURL(reference.licenseUrl!)}> · Licence ↗</Text>}

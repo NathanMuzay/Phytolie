@@ -43,3 +43,13 @@ export function mergeLocalPlants(account: Garden, local: Garden): Garden {
   });
   return { ...account, ...(home ? { home } : {}), plants: [...account.plants, ...imported] };
 }
+
+export type Delegation = { id: string; email: string; startsAt: string; endsAt: string; invitationExpiresAt: string; plantIds: string[]; notes: string; status: 'pending' | 'invitation-expired' | 'scheduled' | 'active' | 'expired' | 'revoked' };
+export type SharedGarden = { delegation: Delegation; plants: Garden['plants'] };
+export const listDelegations = (session: AccountSession): Promise<{ outgoing: Delegation[]; incoming: Delegation[] }> => request('/delegations', 'GET', session.token);
+export const createDelegation = (session: AccountSession, input: { email: string; startsAt: string; endsAt: string; plantIds: string[]; notes: string }): Promise<{ delegation: Delegation; invitation: string }> => request('/delegations', 'POST', session.token, input);
+export const acceptDelegation = (session: AccountSession, invitation: string): Promise<{ delegation: Delegation }> => request('/delegations/accept', 'POST', session.token, { invitation });
+export const revokeDelegation = (session: AccountSession, id: string) => request(`/delegations/${encodeURIComponent(id)}/revoke`, 'POST', session.token);
+export const loadSharedGarden = (session: AccountSession, id: string): Promise<SharedGarden> => request(`/delegations/${encodeURIComponent(id)}/garden`, 'GET', session.token);
+export const waterSharedPlant = (session: AccountSession, id: string, plantId: string): Promise<SharedGarden> => request(`/delegations/${encodeURIComponent(id)}/water`, 'POST', session.token, { plantId });
+export const loadCaretakerActivity = (session: AccountSession): Promise<{ activity: { plantId: string; wateredAt: string; email: string }[] }> => request('/delegations/activity', 'GET', session.token);

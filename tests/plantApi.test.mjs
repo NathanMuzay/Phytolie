@@ -12,8 +12,9 @@ test('Scan checks server availability before uploading and preserves identificat
     calls.push({ url, options });
     return Response.json(url.endsWith('/health') ? { status: 'ok' } : plant);
   });
-  assert.deepEqual(await identifyPlant('data:image/jpeg;base64,YWJj'), [plant]);
+  assert.deepEqual(await identifyPlant('data:image/jpeg;base64,YWJj', 'account-token'), [plant]);
   assert.deepEqual(calls.map(c => c.url), ['http://localhost:8787/health', 'http://localhost:8787/identify']);
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer account-token');
   assert.deepEqual(JSON.parse(calls[1].options.body), { image: 'YWJj' });
 });
 

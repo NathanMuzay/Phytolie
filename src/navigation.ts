@@ -1,7 +1,7 @@
 export type Page = 'home' | 'garden' | 'tasks' | 'settings' | 'preferences' | 'caretaker' | 'account' | 'new' | `plant/${string}` | `edit/${string}`;
 const paths: Record<string, Page> = { '/parametres': 'preferences', '/ma-maison': 'home', '/': 'garden', '/a-faire': 'tasks', '/mon-espace': 'settings', '/personne-de-confiance': 'caretaker', '/compte': 'account', '/plantes/ajouter': 'new' };
 export function pageFromHash(hash: string): Page {
-  const path = hash.replace(/^#/, '') || '/';
+  const path = hash.replace(/^#/, '').split('?')[0] || '/';
   if (paths[path]) return paths[path];
   const match = /^\/plantes\/([^/]+)(\/modifier)?$/.exec(path);
   if (!match) return 'garden';
@@ -12,4 +12,9 @@ export function hashForPage(page: Page): string {
   if (path) return `#${path}`;
   const id = encodeURIComponent(page.slice(page.indexOf('/') + 1));
   return `#/plantes/${id}${page.startsWith('edit/') ? '/modifier' : ''}`;
+}
+
+export function invitationFromHash(hash: string): string {
+  const match = /[?&]invitation=([A-Za-z0-9_-]{43})(?:&|$)/.exec(hash);
+  return match?.[1] ?? '';
 }

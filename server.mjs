@@ -1,3 +1,4 @@
+import { openDelegations } from './server/delegations.mjs';
 import { createServer } from 'node:http';
 import { openAccounts, HttpError } from './server/accounts.mjs';
 import { resolve } from 'node:path';
@@ -7,6 +8,7 @@ import { detectDimensions, MeasurementError } from './server/measurement.mjs';
 const PORT = Number(process.env.API_PORT || 8787);
 const API_KEY = process.env.PLANT_ID_API_KEY;
 const accounts = openAccounts(process.env.FOLIA_DB_PATH || resolve('data/folia.sqlite'));
+const delegations = openDelegations(accounts, HttpError);
 const authAttempts = new Map();
 const measurementAttempts = new Map();
 const MAX_BODY = 12 * 1024 * 1024;
@@ -34,7 +36,7 @@ async function readJson(request, limit) {
 }
 const server = createServer(async (request, response) => {
   if (request.method === 'OPTIONS') return send(response, 204, {});
-  if (request.url?.startsWith('/auth/') || request.url === '/garden') {
+  if (request.url?.startsWith('/auth/') || request.url === '/garden' || request.url?.startsWith('/delegations')) {
     try {
       const token = request.headers.authorization?.startsWith('Bearer ') ? request.headers.authorization.slice(7) : undefined;
       if (request.method === 'POST' && ['/auth/register', '/auth/login'].includes(request.url)) {
@@ -54,6 +56,26 @@ const server = createServer(async (request, response) => {
         accounts.authenticate(token);
         return send(response, 200, accounts.putGarden(token, await readJson(request, 25 * 1024 * 1024)));
       }
+      if (request.method === 'GET' && request.url === '/delegations') return send(response, 200, delegations.list(token));
+      if (request.method === 'GET' && request.url === '/delegations/activity') return send(response, 200, { activity: delegations.activity(token) });
+      if (request.method === 'POST' && request.url === '/delegations') {
+        accounts.authenticate(token);
+        return send(response, 201, delegations.create(token, await readJson(request, 32768)));
+      }
+      if (request.method === 'POST' && request.url === '/delegations/accept') {
+        accounts.authenticate(token);
+        return send(response, 200, delegations.accept(token, await readJson(request, 4096)));
+      }
+      const delegationRoute = /^\/delegations\/([a-zA-Z0-9-]+)\/(revoke|garden|water)$/.exec(request.url || '');
+      if (delegationRoute) {
+        const [, id, action] = delegationRoute;
+        if (request.method === 'POST' && action === 'revoke') return send(response, 200, delegations.revoke(token, id));
+        if (request.method === 'GET' && action === 'garden') return send(response, 200, delegations.garden(token, id));
+        if (request.method === 'POST' && action === 'water') {
+          accounts.authenticate(token);
+          return send(response, 200, delegations.water(token, id, await readJson(request, 4096)));
+        }
+      }
       return send(response, 404, { error: 'Route introuvable.' });
     } catch (error) {
       return send(response, error instanceof HttpError ? error.status : 500, { error: error instanceof HttpError ? error.message : 'Erreur du serveur. Réessayez.' });
@@ -61,6 +83,7 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'POST' && request.url === '/measure') {
     try {
+      accounts.authenticate(request.headers.authorization?.startsWith('Bearer ') ? request.headers.authorization.slice(7) : undefined);
       const now = Date.now();
       for (const [key, value] of measurementAttempts) if (value.until <= now) measurementAttempts.delete(key);
       const key = request.socket.remoteAddress || 'unknown';
@@ -79,9 +102,10 @@ const server = createServer(async (request, response) => {
       : send(response, 503, { error: 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.' });
   }
   if (request.method !== 'POST' || request.url !== '/identify') return send(response, 404, { error: 'Route introuvable.' });
-  if (!API_KEY) return send(response, 503, { error: 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.' });
 
   try {
+    accounts.authenticate(request.headers.authorization?.startsWith('Bearer ') ? request.headers.authorization.slice(7) : undefined);
+    if (!API_KEY) throw new HttpError(503, 'La clé PLANT_ID_API_KEY manque dans le fichier .env du serveur.');
     const input = await readJson(request, MAX_BODY);
     return send(response, 200, await identifyImage(input?.image, { apiKey: API_KEY }));
   } catch (error) {

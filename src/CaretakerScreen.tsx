@@ -1,9 +1,12 @@
+import { DelegationPanel } from './DelegationPanel';
+import type { AccountSession } from './accountApi';
+import type { Plant } from './model';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Caretaker } from './model';
 import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
 const empty: Caretaker = { name: '', phone: '', email: '', notes: '' };
-export function CaretakerScreen({ contact, disabled, onSave }: { contact?: Caretaker; disabled: boolean; onSave: (contact: Caretaker | undefined) => Promise<boolean> }) {
+export function CaretakerScreen({ contact, disabled, onSave, session, plants, initialInvitation, onAccepted }: { session: AccountSession; plants: Plant[]; initialInvitation: string; onAccepted: () => void; contact?: Caretaker; disabled: boolean; onSave: (contact: Caretaker | undefined) => Promise<boolean> }) {
   const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [form, setForm] = useState<Caretaker>(contact ?? empty);
@@ -28,7 +31,7 @@ export function CaretakerScreen({ contact, disabled, onSave }: { contact?: Caret
     {!!message && <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text>}
     <Pressable accessibilityRole="button" disabled={disabled} style={[styles.button, disabled && { opacity: .5 }]} onPress={() => void submit()}><Text style={styles.buttonText}>Enregistrer la personne de confiance</Text></Pressable>
     {contact && <Pressable accessibilityRole="button" disabled={disabled} onPress={async () => { if (await onSave(undefined)) { setForm(empty); setError(''); setMessage('Personne de confiance supprimée.'); } else setError('Suppression impossible. Réessayez.'); }}><Text style={styles.link}>Supprimer les coordonnées</Text></Pressable>}
-    <Text style={styles.body}>Contact conservé avec votre collection, sans envoi de message ni accès au compte.</Text>
+    <DelegationPanel session={session} plants={plants} email={form.email} notes={form.notes} disabled={disabled} initialInvitation={initialInvitation} onAccepted={onAccepted} />
   </View>;
 }
 const baseStyles = StyleSheet.create({

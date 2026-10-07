@@ -32,7 +32,7 @@ async function requestJson(url: string, options: RequestInit, timeoutMs: number,
   } finally { clearTimeout(timer); }
 }
 
-export async function identifyPlant(base64: string): Promise<PlantIdentification[]> {
+export async function identifyPlant(base64: string, token?: string): Promise<PlantIdentification[]> {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
   if (!apiUrl) throw new Error('API_NOT_CONFIGURED');
 
@@ -41,7 +41,7 @@ export async function identifyPlant(base64: string): Promise<PlantIdentification
     'Serveur Folia injoignable après 5 secondes. Lancez npm run api, vérifiez EXPO_PUBLIC_API_URL puis redémarrez Expo.');
   const result = await requestJson(`${apiUrl}/identify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ image: base64.replace(/^data:image\/[^;]+;base64,/, '') }),
   }, 55000, 'L’identification dépasse 55 secondes. Vérifiez votre connexion puis réessayez.') as PlantIdentification & { suggestions?: PlantIdentification[] };
   const suggestions = result.suggestions ?? [result];
@@ -51,11 +51,11 @@ export async function identifyPlant(base64: string): Promise<PlantIdentification
   return suggestions;
 }
 
-export async function detectPhotoDimensions(image: string, size: ImageSize, referenceCm: number, referenceDescription: string): Promise<Landmarks> {
+export async function detectPhotoDimensions(image: string, size: ImageSize, referenceCm: number, referenceDescription: string, token?: string): Promise<Landmarks> {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
   if (!apiUrl) throw new Error('Serveur non configuré. Renseignez EXPO_PUBLIC_API_URL ou placez les points manuellement.');
   const result = await requestJson(`${apiUrl}/measure`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ image, ...size, referenceCm, referenceDescription }),
   }, 55000, 'La mesure dépasse 55 secondes. Réessayez ou placez les points manuellement.');
   if (!validLandmarks(result?.points)) throw new Error('Points reçus invalides. Placez-les manuellement.');

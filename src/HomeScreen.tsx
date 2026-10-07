@@ -12,6 +12,24 @@ function Action({ title, onPress, disabled = false, expanded }: { title: string;
   const styles = useReadableStyles(baseStyles);
   return <Pressable accessibilityRole="button" aria-expanded={expanded} accessibilityState={{ disabled, ...(expanded == null ? {} : { expanded }) }} disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .45 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
 }
+function Dropdown({ label, options, value, onChange, disabled = false }: { label: string; options: { id: string; name: string }[]; value: string; onChange: (id: string) => void; disabled?: boolean }) {
+  const styles = useReadableStyles(baseStyles);
+  const [open, setOpen] = useState(false);
+  const selected = options.find(option => option.id === value);
+  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !open) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [open]);
+  return <View style={{ gap: 8 }}><Text style={styles.label}>{label}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label} : ${selected?.name || 'Aucun élément'}`} aria-expanded={open} accessibilityState={{ expanded: open, disabled: disabled || !options.length }} disabled={disabled || !options.length} onPress={() => setOpen(current => !current)} style={[styles.input, styles.dropdownTrigger, (disabled || !options.length) && { opacity: .45 }]}>
+      <Text style={[styles.buttonText, { flex: 1 }]}>{selected?.name || 'Aucun élément'}</Text><Text style={styles.buttonText}>{open ? '▴' : '▾'}</Text>
+    </Pressable>
+    {open && <ScrollView accessibilityLabel={label} style={styles.dropdownMenu} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{options.map(option => <Pressable key={option.id} accessibilityRole="button" accessibilityState={{ selected: option.id === value }} onPress={() => { onChange(option.id); setOpen(false); }} style={[styles.dropdownOption, option.id === value && styles.dropdownSelected]}><Text style={styles.buttonText}>{option.id === value ? '✓ ' : ''}{option.name || 'Sans nom'}</Text></Pressable>)}</ScrollView>}
+  </View>;
+}
 function Input({ label, value, change, numeric = false, disabled = false }: { label: string; value: string | number; change: (s: string) => void; numeric?: boolean; disabled?: boolean }) {
   const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
@@ -154,12 +172,12 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
   const [draftPlants, setDraftPlants] = useState(plants);
   const [draft, setDraft] = useState<HomePlan>(home ?? { ...newHome(), latitude });
   const [positions, setPositions] = useState<Record<string, PlantPosition | undefined>>(() => Object.fromEntries(plants.map(p => [p.id, p.position])));
-  const [selected, setSelected] = useState('');
+  const [selected, setSelected] = useState(home?.areas[0]?.id ?? '');
   const [plantId, setPlantId] = useState(plants[0]?.id ?? '');
   const [drawError, setDrawError] = useState('');
   const [tool, setTool] = useState<'select' | 'room' | 'garden'>('select');
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [importing, setImporting] = useState(false);
-  const area = draft.areas.find(a => a.id === selected), plant = draftPlants.find(p => p.id === plantId);
+  const area = draft.areas.find(a => a.id === selected) ?? draft.areas[0], plant = draftPlants.find(p => p.id === plantId) ?? draftPlants[0];
   const blocked = disabled || importing;
   const change = (next: HomePlan) => { setDraft(next); setMessage('Modifications non enregistrées.'); setError(''); };
   function updateArea(patch: Partial<HomeArea>) { if (area) change({ ...draft, areas: draft.areas.map(a => a.id === area.id ? { ...a, ...patch } : a) }); }
@@ -210,17 +228,17 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
         {coordinates && <View style={{ gap: 16 }}><View style={styles.row}>{(['width', 'height'] as const).map(key => <Input key={key} disabled={blocked} numeric label={key === 'width' ? 'Largeur du plan (m)' : 'Hauteur du plan (m)'} value={draft[key]} change={s => change({ ...draft, [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}</View><View style={styles.row}><Action title="＋ Pièce par coordonnées" disabled={blocked} onPress={() => addArea('room')} /><Action title="＋ Jardin par coordonnées" disabled={blocked} onPress={() => addArea('garden')} /></View>{area && <><Text style={styles.label}>Coordonnées de {area.name}</Text>
 <View style={styles.row}>{(['x', 'y', 'width', 'height'] as const).map(key => <Input key={key} numeric disabled={blocked} label={{ x: 'Zone X (m)', y: 'Zone Y (m)', width: 'Largeur de la zone (m)', height: 'Profondeur de la zone (m)' }[key]} value={area[key]} change={s => updateArea({ [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}</View></>}</View>}
       </View>
-      <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text style={styles.subtitle}>Placer les plantes</Text><Text style={styles.body}>Choisissez la plante à placer.</Text><View style={styles.row}>{draftPlants.map(p => <Action key={p.id} title={`${plantId === p.id ? '✓ ' : ''}${p.name}`} disabled={blocked} onPress={() => setPlantId(p.id)} />)}</View>{plant ? <PlacementPicker key={plant.id} embedded home={draft} species={plant.species} position={positions[plant.id]} disabled={blocked} onChange={p => { setPositions(current => ({ ...current, [plant.id]: p })); setMessage('Emplacements non enregistrés.'); }} /> : <><PlanCanvas home={draft} disabled /><Text style={styles.body}>Ajoutez une plante à votre collection pour la placer sur le plan.</Text></>}</View>
+      <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text style={styles.subtitle}>Placer les plantes</Text><Text style={styles.body}>Choisissez la plante à placer.</Text><Dropdown label="Plante à placer" options={draftPlants} value={plant?.id ?? ''} disabled={blocked} onChange={setPlantId} />{plant ? <PlacementPicker key={plant.id} embedded home={draft} species={plant.species} position={positions[plant.id]} disabled={blocked} onChange={p => { setPositions(current => ({ ...current, [plant.id]: p })); setMessage('Emplacements non enregistrés.'); }} /> : <><PlanCanvas home={draft} disabled /><Text style={styles.body}>Ajoutez une plante à votre collection pour la placer sur le plan.</Text></>}</View>
     </View>
     <Action title={details ? 'Moins de détails' : 'Plus de détails'} expanded={details} onPress={() => setDetails(v => !v)} />
     {details && <View style={{ gap: 24 }}>
     <View style={styles.card}><Text style={styles.subtitle}>Orientation et exposition</Text><View style={styles.row}>{(['northAngle', 'floor', 'month'] as const).map(key => <Input key={key} disabled={blocked} numeric label={{ northAngle: 'Orientation du haut du plan (0° nord, 90° est)', floor: 'Étage (0 = rez-de-chaussée)', month: 'Mois étudié (1 à 12)' }[key]} value={draft[key]} change={s => change({ ...draft, [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}<Input label="Latitude (−90 à 90, nécessaire au calcul solaire)" value={draft.latitude ?? ''} numeric disabled={blocked} change={s => change({ ...draft, latitude: s.trim() ? Number(s.replace(',', '.')) : undefined })} /></View>{latitude != null && <Action title="Utiliser la latitude de ma ville" disabled={blocked} onPress={() => change({ ...draft, latitude })} />}<Text style={styles.hint}>Ville dans « Mon espace ». Calcul par mois, en heures solaires, sans météo. L’étage est informatif.</Text></View>      <View style={[styles.workspace, { flexDirection: sideBySide ? 'row' : 'column' }]}>
-        <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Pièces et jardins · {draft.areas.length}</Text><ScrollView accessibilityLabel="Détails de toutes les pièces et jardins" style={[styles.detailsScroll, !sideBySide && { height: 440 }, Platform.OS === 'web' && ({ overflowY: 'scroll', scrollbarGutter: 'stable', overscrollBehavior: 'contain' } as ViewStyle)]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
-          {draft.areas.map(a => <AreaDetails key={a.id} area={a} active={selected === a.id} blocked={blocked} onSelect={() => { setSelected(a.id); setTool('select'); }} onChange={next => change({ ...draft, areas: draft.areas.map(item => item.id === a.id ? next : item) })} onRemove={() => { change({ ...draft, areas: draft.areas.filter(item => item.id !== a.id) }); setPositions(current => Object.fromEntries(Object.entries(current).map(([key, p]) => [key, p?.areaId === a.id ? undefined : p]))); if (selected === a.id) setSelected(''); }} />)}
+        <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Pièces et jardins · {draft.areas.length}</Text><Dropdown label="Pièce ou jardin à afficher" options={draft.areas} value={area?.id ?? ''} disabled={blocked} onChange={value => { setSelected(value); setTool('select'); }} /><ScrollView key={area?.id} accessibilityLabel="Détails de la pièce ou du jardin sélectionné" style={[styles.detailsScroll, !sideBySide && { height: 440 }, Platform.OS === 'web' && ({ overflowY: 'scroll', scrollbarGutter: 'stable', overscrollBehavior: 'contain' } as ViewStyle)]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
+          {draft.areas.filter(a => a.id === area?.id).map(a => <AreaDetails key={a.id} area={a} active={area?.id === a.id} blocked={blocked} onSelect={() => { setSelected(a.id); setTool('select'); }} onChange={next => change({ ...draft, areas: draft.areas.map(item => item.id === a.id ? next : item) })} onRemove={() => { change({ ...draft, areas: draft.areas.filter(item => item.id !== a.id) }); setPositions(current => Object.fromEntries(Object.entries(current).map(([key, p]) => [key, p?.areaId === a.id ? undefined : p]))); if (selected === a.id) setSelected(''); }} />)}
           {!draft.areas.length && <Text style={styles.body}>Dessinez une pièce ou un jardin pour afficher ses détails ici.</Text>}
         </ScrollView></View>
-        <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Plantes · {draftPlants.length}</Text><ScrollView accessibilityLabel="Détails de toutes les plantes" style={[styles.detailsScroll, !sideBySide && { height: 440 }, Platform.OS === 'web' && ({ overflowY: 'scroll', scrollbarGutter: 'stable', overscrollBehavior: 'contain' } as ViewStyle)]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
-          {draftPlants.map(p => <PlantDetailsEditor key={p.id} home={draft} plant={p} position={positions[p.id]} active={plantId === p.id} disabled={blocked} onSelect={() => setPlantId(p.id)} onChange={patch => { setDraftPlants(current => current.map(item => {
+        <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Plantes · {draftPlants.length}</Text><Dropdown label="Plante à afficher" options={draftPlants} value={plant?.id ?? ''} disabled={blocked} onChange={setPlantId} /><ScrollView key={plant?.id} accessibilityLabel="Détails de la plante sélectionnée" style={[styles.detailsScroll, !sideBySide && { height: 440 }, Platform.OS === 'web' && ({ overflowY: 'scroll', scrollbarGutter: 'stable', overscrollBehavior: 'contain' } as ViewStyle)]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
+          {draftPlants.filter(p => p.id === plant?.id).map(p => <PlantDetailsEditor key={p.id} home={draft} plant={p} position={positions[p.id]} active={plant?.id === p.id} disabled={blocked} onSelect={() => setPlantId(p.id)} onChange={patch => { setDraftPlants(current => current.map(item => {
             if (item.id !== p.id) return item;
             const next = { ...item, ...patch };
             if ('height' in patch || 'width' in patch || 'pot' in patch) next.measurement = undefined;
@@ -236,6 +254,7 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
 }
 const baseStyles = StyleSheet.create({
   title: { fontFamily: fonts.editorial, fontSize: 44, color: palette.ink }, subtitle: { fontFamily: fonts.editorial, fontSize: 26, color: palette.ink }, body: { fontSize: 15, lineHeight: 23, color: palette.muted }, hint: { fontSize: 12, lineHeight: 19, color: palette.muted },
+  dropdownTrigger: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }, dropdownMenu: { maxHeight: 240, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }, dropdownOption: { padding: 12, minHeight: 44 }, dropdownSelected: { backgroundColor: palette.sage },
   detailsScroll: { height: 580, flexGrow: 0 }, detailsContent: { gap: 20, paddingRight: 12, paddingBottom: 12 },
   workspace: { gap: 24, alignItems: 'stretch' }, workspacePanel: { flex: 1, minWidth: 0 },
   card: { borderRadius: 14, padding: 18, gap: 16, borderWidth: 1, borderLeftWidth: 4, borderLeftColor: palette.terracotta, borderColor: palette.line, backgroundColor: palette.surface }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' }, field: { gap: 6, minWidth: 140, flexGrow: 1 }, label: { color: palette.olive, fontSize: 13 },

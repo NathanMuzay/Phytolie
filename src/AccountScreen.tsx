@@ -2,7 +2,7 @@ import { palette, fonts, useReadableStyles, useThemePalette } from './theme';
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { authenticate, type AccountSession } from './accountApi';
-export function AccountScreen({ onConnected, onCancel, onPreferences }: { onConnected: (session: AccountSession) => void; onCancel: () => void; onPreferences: () => void }) {
+export function AccountScreen({ onConnected, onPreferences }: { onConnected: (session: AccountSession) => void; onPreferences: () => void }) {
   const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -18,15 +18,14 @@ export function AccountScreen({ onConnected, onCancel, onPreferences }: { onConn
     finally { setBusy(false); }
   }
   return <SafeAreaView style={styles.page}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <Pressable accessibilityRole="link" accessibilityLabel="Phytolie — Retour à l’accueil" onPress={onCancel} style={{ alignSelf: 'flex-start' }}><Text style={styles.brand}>Phytolie.</Text></Pressable><Text style={styles.title}>{mode === 'login' ? 'Retrouver mes plantes' : 'Créer mon compte'}</Text>
-    <Text style={styles.text}>Sauvegardez votre collection en ligne. Vos plantes locales pourront être importées après connexion.</Text>
+    <Text style={styles.brand}>Phytolie.</Text><Text style={styles.title}>{mode === 'login' ? 'Retrouver mes plantes' : 'Créer mon compte'}</Text>
+    <Text style={styles.text}>Connectez-vous ou créez un compte pour accéder à l’application. Vos plantes locales pourront être importées après connexion.</Text>
     <Text style={styles.label}>Adresse e-mail</Text><TextInput accessibilityLabel="Adresse e-mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" maxLength={254} editable={!busy} style={styles.input} />
     <Text style={styles.label}>Mot de passe (12 caractères minimum)</Text><TextInput accessibilityLabel="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} maxLength={128} editable={!busy} style={styles.input} />
     {mode === 'register' && <><Text style={styles.label}>Confirmer le mot de passe</Text><TextInput accessibilityLabel="Confirmer le mot de passe" value={confirmation} onChangeText={setConfirmation} secureTextEntry autoCapitalize="none" autoComplete="new-password" maxLength={128} editable={!busy} style={styles.input} /></>}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <Pressable accessibilityRole="button" disabled={busy} style={styles.button} onPress={() => void submit()}><Text style={styles.buttonText}>{busy ? 'Veuillez patienter…' : mode === 'login' ? 'Se connecter' : 'Créer le compte'}</Text></Pressable>
     <Pressable accessibilityRole="button" disabled={busy} onPress={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setPassword(''); setConfirmation(''); }}><Text style={styles.link}>{mode === 'login' ? 'Pas de compte ? S’inscrire' : 'Déjà un compte ? Se connecter'}</Text></Pressable>
-    <Pressable accessibilityRole="button" disabled={busy} onPress={onCancel}><Text style={styles.link}>Continuer avec ma collection locale</Text></Pressable>
     <Pressable accessibilityRole="button" onPress={onPreferences} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={styles.link}>Paramètres d’accessibilité</Text></Pressable>
     <Text style={styles.text}>Session de 24 h maximum, fermée en quittant l’application. Mot de passe non enregistré. Récupération par e-mail indisponible.</Text>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;

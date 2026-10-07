@@ -15,7 +15,7 @@ function Action({ title, onPress, disabled = false }: { title: string; onPress: 
   return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.button, disabled && { opacity: .5 }]}><Text style={styles.buttonText}>{title}</Text></Pressable>;
 }
 
-export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: string; disabled: boolean; onApply: (measurement: Measurement) => void; onBusy: (busy: boolean) => void }) {
+export function DimensionMeasure({ photo, disabled, onApply, onBusy, token }: { token: string; photo: string; disabled: boolean; onApply: (measurement: Measurement) => void; onBusy: (busy: boolean) => void }) {
   const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const [open, setOpen] = useState(false);
@@ -50,7 +50,7 @@ export function DimensionMeasure({ photo, disabled, onApply, onBusy }: { photo: 
     try {
       const image = photo.startsWith('data:') ? photo : Platform.OS !== 'web' ? `data:${new File(photo).type || 'image/jpeg'};base64,${await new File(photo).base64()}` : '';
       if (!image) throw new Error('Photo indisponible : choisissez-la à nouveau.');
-      const detected = await detectPhotoDimensions(image, size, length, referenceDescription);
+      const detected = await detectPhotoDimensions(image, size, length, referenceDescription, token);
       if (mounted.current) { setPoints(detected); setMethod('vision'); setMessage('Points détectés. Vérifiez les huit positions avant d’appliquer les mesures.'); }
     } catch (error) {
       if (mounted.current) setMessage(error instanceof Error ? error.message : 'Analyse impossible. Placez les points manuellement.');
