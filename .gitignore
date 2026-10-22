@@ -32,6 +32,8 @@ yarn-error.*
 
 # local env files
 .env
+.env.*
+!.env.example
 .env*.local
 
 # typescript
@@ -45,3 +47,5 @@ yarn-error.*
 /data/
 *.sqlite
 *.sqlite-*
+*.foliabak
+/backups/

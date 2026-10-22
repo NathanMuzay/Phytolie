@@ -31,7 +31,7 @@ test('Real HTTP account lifecycle: registration, private collection, conflict, l
     const authenticatedMeasure = await request('/measure', 'POST', session.token, {});
     assert.equal(authenticatedMeasure.status, 503);
     assert.match((await authenticatedMeasure.json()).error, /OPENAI_API_KEY/);
-    assert.equal((await fetch(`${base}/measure`, { method: 'POST', headers: { Authorization: `Bearer ${session.token}` }, body: '{' })).status, 400);
+    assert.equal((await fetch(`${base}/measure`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: '{' })).status, 400);
     const loaded = await (await request('/garden', 'GET', session.token)).json();
     assert.deepEqual(loaded, { garden: { plants: [], reminders: false }, revision: 0 });
     const caretaker = { name: 'Camille', phone: '+33 6 00 00 00 00', email: 'camille@example.test', notes: 'Vérifier le terreau avant d’arroser.' };

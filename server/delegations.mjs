@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { waterPlant } from '../src/shared/model.ts';
 const digest = value => createHash('sha256').update(value).digest('hex');
-export function openDelegations(accounts, HttpError) {
+export function openDelegations(accounts, HttpError, { migrate = false, requireEncrypted = process.env.NODE_ENV === 'production' } = {}) {
   const { db, authenticate } = accounts;
   db.exec(`CREATE TABLE IF NOT EXISTS delegations (
     id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), email TEXT NOT NULL,
@@ -11,11 +11,23 @@ export function openDelegations(accounts, HttpError) {
     CREATE TABLE IF NOT EXISTS caretaker_actions (
     id TEXT PRIMARY KEY, delegation_id TEXT NOT NULL REFERENCES delegations(id),
     guest_id TEXT NOT NULL REFERENCES users(id), plant_id TEXT NOT NULL, watered_at TEXT NOT NULL);`);
+  const { codec } = accounts;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const row of db.prepare('SELECT id, notes FROM delegations').iterate()) {
+      codec.decode(row.notes, `delegation:${row.id}`);
+      if (!codec.encrypted(row.notes)) {
+        if (migrate && codec.enabled) db.prepare('UPDATE delegations SET notes=? WHERE id=?').run(codec.encode(row.notes, `delegation:${row.id}`), row.id);
+        else if (requireEncrypted) throw new Error('Migration des consignes nécessaire : npm run security:migrate.');
+      }
+    }
+    db.exec('COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); throw error; }
   const fail = (status, message) => { throw new HttpError(status, message); };
   function view(row) {
     const now = Date.now();
     return { id: row.id, email: row.email, startsAt: new Date(row.starts).toISOString(), endsAt: new Date(row.ends).toISOString(),
-      invitationExpiresAt: new Date(row.invitation_expires).toISOString(), plantIds: JSON.parse(row.plant_ids), notes: row.notes,
+      invitationExpiresAt: new Date(row.invitation_expires).toISOString(), plantIds: JSON.parse(row.plant_ids), notes: codec.decode(row.notes, `delegation:${row.id}`),
       status: row.revoked ? 'revoked' : row.ends <= now ? 'expired' : !row.guest_id ? row.invitation_expires <= now ? 'invitation-expired' : 'pending' : row.starts > now ? 'scheduled' : 'active' };
   }
   function authorized(token, id) {
@@ -41,7 +53,7 @@ export function openDelegations(accounts, HttpError) {
       const invitation = randomBytes(32).toString('base64url');
       const id = randomUUID(), expires = Math.min(ends, Date.now() + 7 * 86400000);
       db.prepare('INSERT INTO delegations (id, owner_id, email, invitation_hash, invitation_expires, starts, ends, plant_ids, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(id, owner.id, email, digest(invitation), expires, starts, ends, JSON.stringify(ids), input.notes.trim());
+        .run(id, owner.id, email, digest(invitation), expires, starts, ends, JSON.stringify(ids), codec.encode(input.notes.trim(), `delegation:${id}`));
       return { delegation: view(db.prepare('SELECT * FROM delegations WHERE id=?').get(id)), invitation };
     },
     list(token) {
@@ -66,7 +78,7 @@ export function openDelegations(accounts, HttpError) {
     },
     garden(token, id) {
       const { row } = authorized(token, id);
-      const garden = JSON.parse(db.prepare('SELECT data FROM gardens WHERE user_id=?').get(row.owner_id).data);
+      const garden = accounts.readGarden(db.prepare('SELECT data FROM gardens WHERE user_id=?').get(row.owner_id).data, row.owner_id);
       const ids = JSON.parse(row.plant_ids);
       // Exclude the owner's contact, house plan and account settings from the shared collection.
       return { delegation: view(row), plants: garden.plants.filter(p => ids.includes(p.id)).map(({ position, caretaker, ...plant }) => plant) };
@@ -77,14 +89,14 @@ export function openDelegations(accounts, HttpError) {
       db.exec('BEGIN IMMEDIATE');
       try {
         const stored = db.prepare('SELECT data, revision FROM gardens WHERE user_id=?').get(row.owner_id);
-        const garden = JSON.parse(stored.data);
+        const garden = accounts.readGarden(stored.data, row.owner_id);
         const plant = garden.plants.find(p => p.id === input.plantId);
         if (!plant) fail(404, 'La plante a été retirée de la collection.');
         const now = new Date();
         // Retrying a confirmation on the same calendar day must not duplicate watering history.
         if (!plant.lastWatered || plant.lastWatered.slice(0, 10) !== now.toISOString().slice(0, 10)) {
           garden.plants = garden.plants.map(p => p.id === plant.id ? waterPlant(p, now) : p);
-          db.prepare('UPDATE gardens SET data=?, revision=revision+1 WHERE user_id=?').run(JSON.stringify(garden), row.owner_id);
+          db.prepare('UPDATE gardens SET data=?, revision=revision+1 WHERE user_id=?').run(accounts.encodeGarden(garden, row.owner_id), row.owner_id);
           db.prepare('INSERT INTO caretaker_actions VALUES (?, ?, ?, ?, ?)').run(randomUUID(), row.id, user.id, plant.id, now.toISOString());
         }
         db.exec('COMMIT');

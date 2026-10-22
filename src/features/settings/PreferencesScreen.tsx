@@ -2,8 +2,10 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { TEXT_SCALES } from '../../shared/accessibility/accessibility';
 import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
 import { fonts, palette, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
+import { AccountSecurity } from '../accounts/AccountSecurity';
+import type { AccountSession } from '../accounts/accountApi';
 
-export function PreferencesScreen({ account }: { account?: { email: string; disabled: boolean; onDisconnect: () => void } } = {}) {
+export function PreferencesScreen({ account }: { account?: { email: string; disabled: boolean; onDisconnect: () => void; session?: AccountSession; onRevoked?: () => void } } = {}) {
   const { settings, ready, error, update, reset } = useAccessibility();
   const styles = useReadableStyles(baseStyles);
   const colors = useThemePalette();
@@ -13,6 +15,7 @@ export function PreferencesScreen({ account }: { account?: { email: string; disa
       <Text accessibilityRole="header" style={styles.heading}>Mon compte</Text>
       <Text selectable style={styles.body}>{account.email}</Text>
       <Pressable accessibilityRole="button" disabled={account.disabled} accessibilityState={{ disabled: account.disabled }} onPress={account.onDisconnect} style={[styles.button, account.disabled && { opacity: .5 }]}><Text style={styles.buttonText}>Se déconnecter ↗</Text></Pressable>
+      {account.session && account.onRevoked && <AccountSecurity session={account.session} disabled={account.disabled} onRevoked={account.onRevoked} />}
     </View>}
     <Text style={styles.body}>Vos préférences s’appliquent à toutes les pages et sont conservées sur cet appareil.</Text>
     <View style={styles.card}>

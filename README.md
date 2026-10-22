@@ -2,6 +2,9 @@
 
 Une application de suivi de plantes en français, pensée pour **Android**, avec React Native, Expo et TypeScript. Elle reconnaît une plante à partir d’une photo grâce à l’API plant.id, puis préremplit sa fiche d’entretien.
 
+La configuration de production, les protections, les quotas, le chiffrement et
+les procédures de sauvegarde sont détaillés dans [SECURITY.md](SECURITY.md).
+
 ## Lancer localement
 
 ### Démo à distance : téléphone en 4G/5G ou sur un autre Wi-Fi

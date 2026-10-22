@@ -194,10 +194,12 @@ contrat, la licence, le coût et le repli hors ligne.
    des photos, timeout, rétention et suppression ; compléter
    [#57](https://github.com/NathanMuzay/Phytolie/issues/57) et
    [#140](https://github.com/NathanMuzay/Phytolie/issues/140).
-6. **Protéger la production :** l’API actuelle autorise encore
-   `Access-Control-Allow-Origin: *` et est documentée comme serveur de
-   développement privé. Une publication nécessite HTTPS, authentification
-   robuste, contrôle des origines, sauvegardes et rotation des secrets.
+6. **Protéger la production :** le durcissement décrit dans
+   [SECURITY.md](../SECURITY.md) ajoute une liste d’origines CORS exactes,
+   l’obligation HTTPS derrière un proxy local en production, des quotas
+   persistants, la révocation des sessions et les outils de chiffrement et de
+   sauvegarde. La publication nécessite encore la configuration des clés,
+   la migration des données, le déploiement du proxy et la supervision.
 
 ## Sources tarifaires et techniques
 

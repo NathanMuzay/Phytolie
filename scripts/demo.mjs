@@ -22,6 +22,7 @@ function start(args, env, stdio) {
 }
 
 try {
+  if (process.env.NODE_ENV === 'production') throw new Error('La démo Expo est réservée au développement. Utilisez le déploiement HTTPS décrit dans SECURITY.md.');
   const database = resolve(process.env.FOLIA_DEMO_DB_PATH || 'data/demo.sqlite');
   console.log(`Démo : comptes et plantes séparés dans ${database}`);
   const api = start(['--experimental-strip-types', 'server/index.mjs'], {

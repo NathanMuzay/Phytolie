@@ -30,7 +30,7 @@ import { careDefaults, estimateWaterAmount } from '../features/plants/care';
 import { wateringPlan, defaultIrrigation, Irrigation } from '../features/plants/irrigation';
 import { searchCities, fetchWeather, outdoorTemperature, City, Weather } from '../services/weather';
 import { AccountScreen } from '../features/accounts/AccountScreen';
-import { AccountSession, loadAccountGarden, saveAccountGarden, logoutAccount, mergeLocalPlants } from '../features/accounts/accountApi';
+import { AccountSession, AccountError, loadAccountGarden, saveAccountGarden, logoutAccount, mergeLocalPlants } from '../features/accounts/accountApi';
 import { identifyPlant, PlantIdentification } from '../features/plants/plantApi';
 
 configureDemoApiHost(Constants.expoConfig?.hostUri);
@@ -202,7 +202,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     if (lock.current || scanning || measuring || leaving.current) return;
     leaving.current = true; setBusy(true);
     try {
-      if (account) await logoutAccount(account);
+      if (account) { try { await logoutAccount(account); } catch (error) { if (!(error instanceof AccountError && error.status === 401)) throw error; } }
       await scheduleQueue.current;
       await syncReminders([], false);
       onDisconnected();
@@ -421,7 +421,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {tab === 'tasks' && <TasksScreen plants={sortedPlants} disabled={disabled} onWatered={plant => void watered(plant)} onObserve={(plant, moisture) => void observeMoisture(plant, moisture)} onOpenPlant={plant => { setSelected(plant.id); setConfirmDelete(false); }} onAddPlant={garden.plants.length ? () => navigate('garden') : openAdd} />}
       {tab === 'home' && <HomeScreen home={garden.home} plants={garden.plants} latitude={garden.city?.latitude} disabled={disabled} onSave={(home, positions, plants) => save(gardenWithHome({ ...garden, plants }, home, positions))} />}
       {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants} initialInvitation={invitation} onAccepted={onAccepted} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
-      {tab === 'preferences' && <PreferencesScreen account={{ email: account.user.email, disabled: busy || scanning || measuring, onDisconnect: () => void switchAccount() }} />}
+      {tab === 'preferences' && <PreferencesScreen account={{ email: account.user.email, session: account, disabled: busy || scanning || measuring, onDisconnect: () => void switchAccount(), onRevoked: () => { void (async () => { try { await scheduleQueue.current; await syncReminders([], false); } finally { onDisconnected(); } })().catch(() => {}); } }} />}
       {tab === 'settings' && <>
         <Text accessibilityRole="header" style={styles.title}>Mon espace</Text>
         <View style={styles.row}><Button title="Ma maison ↗" secondary onPress={() => navigate('home')} /><Button title="Personne de confiance ↗" secondary onPress={() => navigate('caretaker')} /></View>

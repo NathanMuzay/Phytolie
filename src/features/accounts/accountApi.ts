@@ -33,6 +33,10 @@ export async function saveAccountGarden(session: AccountSession, garden: Garden,
   return data.revision;
 }
 export async function logoutAccount(session: AccountSession): Promise<void> { await request('/auth/logout', 'POST', session.token); }
+export async function logoutAllAccounts(session: AccountSession): Promise<void> { await request('/auth/logout-all', 'POST', session.token); }
+export async function changeAccountPassword(session: AccountSession, currentPassword: string, newPassword: string): Promise<void> {
+  await request('/auth/password', 'POST', session.token, { currentPassword, newPassword });
+}
 export function mergeLocalPlants(account: Garden, local: Garden): Garden {
   const ids = new Set(account.plants.map(p => p.id));
   const home = account.home ?? local.home;

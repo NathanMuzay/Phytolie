@@ -1,0 +1,13 @@
+# Remplacer api.example.com par le domaine DNS pointant vers cet hôte.
+api.example.com {
+    request_body {
+        max_size 26214400
+    }
+    reverse_proxy 127.0.0.1:8787 {
+        # Un seul proxy : remplacer les valeurs entrantes, ne pas les concaténer.
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up -Forwarded
+    }
+    header -Server
+}

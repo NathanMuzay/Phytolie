@@ -13,6 +13,10 @@ export function demoApiBase(host: string | undefined): string | undefined {
 }
 
 export function getApiBase(): string | undefined {
-  if (process.env.EXPO_PUBLIC_API_VIA_EXPO === '1') return demoApiBase(demoHost);
-  return process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  const base = process.env.EXPO_PUBLIC_API_VIA_EXPO === '1' ? demoApiBase(demoHost) : process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  if (base) {
+    const url = new URL(base);
+    if (url.username || url.password || !['https:', 'http:'].includes(url.protocol) || (process.env.NODE_ENV === 'production' && url.protocol !== 'https:')) throw new Error('Adresse API invalide : HTTPS obligatoire en production.');
+  }
+  return base;
 }
