@@ -54,7 +54,9 @@ La fiche et l’écran « À faire » affichent une **marge indicative en heures
 
 La marge aide à prioriser les vérifications ; elle ne prédit ni la survie ni l’état réel de la plante. Vérifiez le terreau et les signes de stress.
 
-## Navigation web et personne de confiance
+## Navigation et personne de confiance
+
+Sur téléphone, le bouton **Menu**, en haut à côté de **Phytolie**, ouvre les six pages : Mes plantes, À faire, Ma maison, Personne de confiance, Mon espace et Paramètres. La page active est indiquée et le menu se ferme après sélection ; le bouton Retour Android ferme également le menu. L’accueil présente d’abord l’ajout d’une plante, puis les soins du jour et l’herbier. Le tri apparaît à partir de deux plantes. La collection s’actualise en revenant sur Mes plantes ; tirez aussi la liste vers le bas pour l’actualiser sur téléphone.
 
 Sur ordinateur, les textes sont agrandis à partir de 860 px de largeur. Chaque écran possède une adresse : `#/`, `#/a-faire`, `#/mon-espace`, `#/personne-de-confiance`, `#/compte`, `#/plantes/ajouter`, `#/plantes/<id>` et `#/plantes/<id>/modifier`. Les boutons précédent/suivant du navigateur et le rechargement conservent la page demandée. Hors des champs de saisie, **Ctrl+Z** (ou **Cmd+Z**) revient à l’accueil ; dans un champ, il continue d’annuler la saisie.
 
@@ -64,7 +66,7 @@ La page **Personne de confiance** permet d’enregistrer un nom, un téléphone,
 2. Cliquez sur **Créer une invitation**. Sur le Web, partagez le lien affiché ; sur mobile, partagez le code. Aucun e-mail n’est envoyé automatiquement. Le lien ou code apparaît uniquement à la création ; s’il est perdu, révoquez l’invitation et créez-en une nouvelle.
 3. La personne se connecte ou s’inscrit avec l’adresse prévue. Un lien Web conserve le code pendant la connexion ; sur mobile, elle colle le code dans **Accepter une invitation**. L’invitation est à usage unique et expire au bout de 7 jours ou à la fin de la période si elle arrive avant.
 4. Pendant la période autorisée, **Plantes qui me sont confiées → Voir les plantes et consignes** affiche uniquement les plantes choisies, leurs échéances et les consignes. **J’ai arrosé** met à jour la collection du propriétaire. Une confirmation répétée le même jour UTC ne duplique pas l’historique. Les opérations sont attribuées au compte invité dans **Arrosages par les personnes de confiance**.
-5. **Retirer cet accès** révoque immédiatement les autorisations sur le serveur. La fin de période bloque aussi les lectures et confirmations ; un espace déjà ouvert se rafraîchit toutes les 30 secondes. Le propriétaire recharge sa collection pour voir les arrosages distants ; une sauvegarde obsolète est refusée.
+5. **Retirer cet accès** révoque immédiatement les autorisations sur le serveur. La fin de période bloque aussi les lectures et confirmations ; un espace déjà ouvert se rafraîchit toutes les 30 secondes. Le propriétaire revient dans Mes plantes (ou tire la liste vers le bas sur téléphone) pour voir les arrosages distants ; une sauvegarde obsolète est refusée.
 
 La personne invitée ne peut ni modifier les fiches, ni supprimer les plantes, ni accéder aux réglages du propriétaire ou à son plan complet. Les invitations, leur acceptation et les arrosages sont conservés dans SQLite ; seuls les condensats des codes sont stockés. Le partage nécessite le même serveur pour les deux comptes. L’adresse e-mail des comptes n’est pas encore vérifiée : l’acceptation exige à la fois le code secret et un compte avec l’adresse prévue, sans prouver la possession de la boîte e-mail. Les anciens carnets locaux restent importables après connexion ; le mode sans compte n’est plus proposé.
 

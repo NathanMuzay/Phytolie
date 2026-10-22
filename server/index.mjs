@@ -114,6 +114,7 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`API Folia prête sur http://0.0.0.0:${server.address().port}`);
+const HOST = process.env.API_HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => {
+  console.log(`API Folia prête sur http://${HOST}:${server.address().port}`);
 });

@@ -1,3 +1,4 @@
+import { getApiBase } from '../../services/apiBase.ts';
 import { parseGarden, type Garden } from '../../shared/model.ts';
 export type AccountSession = { token: string; user: { id: string; email: string }; expiresAt: string };
 export class AccountError extends Error {
@@ -5,7 +6,7 @@ export class AccountError extends Error {
   constructor(message: string, status: number) { super(message); this.status = status; }
 }
 async function request(path: string, method: string, token?: string, body?: unknown) {
-  const base = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  const base = getApiBase();
   if (!base) throw new Error('Serveur non configuré. Consultez le README.');
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 15000);
   try {

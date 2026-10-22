@@ -4,6 +4,21 @@ Une application de suivi de plantes en français, pensée pour **Android**, avec
 
 ## Lancer localement
 
+### Démo à distance : téléphone en 4G/5G ou sur un autre Wi-Fi
+
+Après installation des dépendances (`npm ci`), lancez une seule commande :
+
+```bash
+nvm use
+npm run demo
+```
+
+Scannez le **nouveau QR code** dans Expo Go. L’application **et son API** passent par le même tunnel HTTPS Expo/ngrok : aucune IP locale à modifier et aucun second terminal API à lancer. Le téléphone et l’ordinateur ont chacun besoin d’Internet ; l’ordinateur et ce terminal doivent rester ouverts pendant la démo. `Ctrl+C` ferme le tunnel et le serveur de démonstration.
+
+Les comptes et collections de démonstration sont conservés séparément dans `data/demo.sqlite`. Créez un compte de démonstration dans l’application : vos comptes habituels ne sont pas copiés. Relancer la démo conserve ces comptes ; `FOLIA_DEMO_DB_PATH` permet de choisir un autre fichier. Les clés `PLANT_ID_API_KEY` et `OPENAI_API_KEY` de `.env` restent sur le serveur ; sans clé, les fonctionnalités correspondantes restent indisponibles et la saisie manuelle reste utilisable.
+
+Le lien est public et temporaire : partagez-le uniquement avec les personnes qui testent la démo. Le tunnel utilise un service tiers et peut être plus lent que le Wi-Fi local. Cette commande démarre un serveur de développement, pas un hébergement permanent. Si le tunnel échoue, vérifiez l’accès Internet et relancez la commande. Vous pouvez choisir un autre port Expo avec `npm run demo -- --port 8083` si un serveur Expo utilise déjà le port par défaut.
+
 ### Prérequis
 
 - **Node.js 22.13 minimum** (Node 22 recommandé) et npm.
@@ -56,6 +71,16 @@ npm start
 
 Ouvrez Expo Go sur Android et scannez le QR code affiché dans le terminal. Gardez les deux terminaux ouverts ; `Ctrl+C` arrête chaque serveur.
 
+**Téléphone bloqué sur le nom « Phytolie » :** quittez le projet dans Expo Go, arrêtez les anciens serveurs Expo, puis lancez le mode téléphone avec un cache neuf :
+
+```bash
+npm run mobile
+```
+
+Scannez le **nouveau** QR code et gardez le terminal ouvert, jusqu’à l’affichage de `Android Bundled`, puis pendant toute l’utilisation. Le premier chargement peut prendre une minute. Ne faites pas `Ctrl+C` après le scan : cela coupe le serveur qui fournit le code au téléphone. Après une installation ou une mise à jour des dépendances, redémarrez toujours Expo.
+
+Sur le même Wi-Fi, ouvrez `http://<IP-de-votre-ordinateur>:8081/status` dans le navigateur du téléphone : `packager-status:running` confirme l’accès à Metro (adaptez le port si Expo en affiche un autre). Le serveur API doit toujours être lancé séparément avec `npm run api`, et `EXPO_PUBLIC_API_URL` doit correspondre à l’adresse IPv4 actuelle de l’ordinateur. Une ancienne adresse réseau empêche la connexion au compte et les scans, mais pas l’affichage du formulaire de connexion.
+
 **Aperçu dans le navigateur :**
 
 ```bash
@@ -77,7 +102,7 @@ Cette commande ouvre l’application via Expo Go sur l’appareil disponible. El
 1. Démarrez `npm run api`, puis ouvrez « Connexion / Inscription » dans l’application.
 2. Créez un compte avec une adresse e-mail et un mot de passe de 12 à 128 caractères. Aucune clé de service supplémentaire n’est nécessaire.
 3. Dans « Mon espace », utilisez « Importer mes plantes locales » pour copier vos anciennes plantes dans le compte. Les photos sont transférées ; la collection locale reste intacte. Relancer l’import ne duplique pas les identifiants déjà présents.
-4. Connectez-vous sur un autre appareil pointant vers **le même serveur** pour retrouver vos plantes. « Recharger la collection » récupère les modifications faites ailleurs. Si une autre session a modifié la collection, une sauvegarde obsolète est refusée au lieu d’écraser ses changements.
+4. Connectez-vous sur un autre appareil pointant vers **le même serveur** pour retrouver vos plantes. Revenir dans « Mes plantes » récupère les modifications faites ailleurs ; sur téléphone, vous pouvez aussi tirer la liste vers le bas. Si une autre session a modifié la collection, une sauvegarde obsolète est refusée au lieu d’écraser ses changements.
 5. « Se déconnecter » révoque la session, efface ses rappels programmés sur cet appareil et revient à l’écran de connexion. Un autre compte ne voit pas les fiches du précédent.
 
 Les comptes sont stockés dans `data/folia.sqlite`, exclu de Git. Le chemin peut être changé avec `FOLIA_DB_PATH`. Sauvegardez ce fichier **serveur arrêté** pour conserver comptes et collections. Supprimer le fichier supprime les comptes ; réinstaller l’application mobile ne supprime pas les collections du serveur. Les photos sont stockées dans la collection (limite de 200 plantes et de 24 Mo par compte).
@@ -98,6 +123,7 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 - Erreur 401 : la clé plant.id est incorrecte. Erreur 402 : crédits insuffisants. Erreur 403 : accès refusé. Erreur 429 : limite atteinte, vérifiez les quotas et le solde Kindwise.
 - Photo refusée : le serveur convertit les images JPEG, PNG, WebP et AVIF en JPEG avant identification. Limites : 8 Mo et 40 mégapixels en entrée ; image redimensionnée à 1 400 pixels maximum par côté. Une image corrompue ou non décodable affiche une erreur explicite. Redémarrez le serveur après une mise à jour.
 - Cache Metro : `npx expo start --clear`.
+- Écran rouge `expo-notifications: Android Push notifications ... removed from Expo Go` : mettez à jour le code, arrêtez Expo puis relancez `npx expo start --clear` et rechargez l’application sur le téléphone. Folia utilise uniquement des rappels locaux, disponibles dans Expo Go, et charge leurs API sans initialiser les notifications push. Les notifications push distantes nécessiteraient une compilation de développement ; elles ne sont pas utilisées ici.
 - Version incompatible dans Expo Go : installez une version Android compatible avec le SDK 57 depuis [expo.dev/go](https://expo.dev/go).
 - Notifications absentes : autorisez-les dans Android et dans **Mon espace**. Testez sur un appareil Android ; l’économie de batterie peut retarder leur livraison.
 
@@ -148,7 +174,7 @@ Le scan de pièce, la compatibilité avant achat et le diagnostic de maladies re
 
 Les notifications sont regroupées par jour et programmées pour les **30 prochains jours calendaires**, puis renouvelées à chaque ouverture, retour au premier plan, changement d’heure de rappel et modification du carnet. Une heure déjà passée commence au lendemain. L’heure suit le fuseau local au moment de la programmation : rouvrez l’application après un voyage. Au passage à l’heure d’été, une heure inexistante est décalée vers l’heure valide suivante, puis l’heure habituelle reprend le lendemain. Après plus de 30 jours sans ouverture, les rappels cessent. Les échéances de rempotage sont affichées dans le carnet, sans notification dédiée. Le champ référent de chaque plante reste une note. Les accès temporaires se gèrent dans « Personne de confiance ».
 
-Les fiches et photos sont stockées sur le serveur Folia et retrouvées à la connexion ; les modifications des autres appareils sont récupérées par rechargement explicite. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet local, mais pas la collection du compte sur le serveur. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
+Les fiches et photos sont stockées sur le serveur Folia et retrouvées à la connexion ; les modifications des autres appareils sont récupérées à chaque retour dans « Mes plantes », ou en tirant la liste vers le bas sur téléphone. Les photos scannées transitent toutefois par plant.id pour l’identification. Désinstaller l’application ou effacer ses données supprime le carnet local, mais pas la collection du compte sur le serveur. Les anciennes photos ne sont pas encore nettoyées du stockage lors de la suppression d’une fiche.
 
 ## Organisation
 

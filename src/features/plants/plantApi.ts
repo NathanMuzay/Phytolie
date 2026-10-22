@@ -1,3 +1,4 @@
+import { getApiBase } from '../../services/apiBase.ts';
 import { validLandmarks, type Landmarks, type ImageSize } from '../measurement/measurement.ts';
 import type { BotanicalImage } from './botanical.ts';
 export type PlantIdentification = {
@@ -33,7 +34,7 @@ async function requestJson(url: string, options: RequestInit, timeoutMs: number,
 }
 
 export async function identifyPlant(base64: string, token?: string): Promise<PlantIdentification[]> {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  const apiUrl = getApiBase();
   if (!apiUrl) throw new Error('API_NOT_CONFIGURED');
 
   // Check connectivity before uploading the photo or using identification credits.
@@ -52,7 +53,7 @@ export async function identifyPlant(base64: string, token?: string): Promise<Pla
 }
 
 export async function detectPhotoDimensions(image: string, size: ImageSize, referenceCm: number, referenceDescription: string, token?: string): Promise<Landmarks> {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  const apiUrl = getApiBase();
   if (!apiUrl) throw new Error('Serveur non configuré. Renseignez EXPO_PUBLIC_API_URL ou placez les points manuellement.');
   const result = await requestJson(`${apiUrl}/measure`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

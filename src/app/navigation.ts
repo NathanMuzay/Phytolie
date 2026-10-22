@@ -1,4 +1,12 @@
 export type Page = 'home' | 'garden' | 'tasks' | 'settings' | 'preferences' | 'caretaker' | 'account' | 'new' | `plant/${string}` | `edit/${string}`;
+export const mainPages = [
+  { id: 'garden', label: 'Mes plantes', description: 'Votre collection' },
+  { id: 'tasks', label: 'À faire', description: 'Les soins du jour' },
+  { id: 'home', label: 'Ma maison', description: 'Plan et emplacements' },
+  { id: 'caretaker', label: 'Personne de confiance', description: 'Partager les soins' },
+  { id: 'settings', label: 'Mon espace', description: 'Rappels et météo' },
+  { id: 'preferences', label: 'Paramètres', description: 'Accessibilité et compte' },
+] as const;
 const paths: Record<string, Page> = { '/parametres': 'preferences', '/ma-maison': 'home', '/': 'garden', '/a-faire': 'tasks', '/mon-espace': 'settings', '/personne-de-confiance': 'caretaker', '/compte': 'account', '/plantes/ajouter': 'new' };
 export function pageFromHash(hash: string): Page {
   const path = hash.replace(/^#/, '').split('?')[0] || '/';

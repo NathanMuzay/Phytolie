@@ -1,6 +1,7 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { palette, fonts, useReadableStyles } from '../../shared/ui/theme';
 import { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { authenticate, type AccountSession } from './accountApi';
 export function AccountScreen({ onConnected, onPreferences }: { onConnected: (session: AccountSession) => void; onPreferences: () => void }) {
   const styles = useReadableStyles(baseStyles);

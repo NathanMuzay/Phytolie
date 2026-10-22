@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import * as Notifications from './localNotifications';
 import { Plant, DEFAULT_REMINDER_TIME } from '../shared/model';
 import { replaceReminders } from './reminders';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
+  });
+}
 export async function requestReminders(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('care', { name: 'Entretien des plantes', importance: Notifications.AndroidImportance.DEFAULT });
