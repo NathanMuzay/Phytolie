@@ -22,7 +22,7 @@ L’accès au capteur utilise [Expo LightSensor](https://docs.expo.dev/versions/
 
 ## Mesurer les dimensions sur photo
 
-Dans « Ajouter une plante » ou « Modifier la fiche », ajoutez une photo, puis ouvrez **Dimensions sur photo → Mesurer cette photo**.
+Dans « Ajouter une plante » ou « Modifier la fiche », ajoutez une photo à l’étape **La plante**, puis passez à **Ses besoins** et ouvrez **Dimensions sur photo → Mesurer cette photo**.
 
 1. Photographiez de face la plante entière et son pot de culture, avec une règle ou une feuille A4 placée à côté **à la même distance de l’appareil**. Le niveau du terreau et l’ouverture du pot doivent être visibles. Évitez les perspectives fortes, le grand-angle, les plantes tronquées et les cache-pots masquant le pot intérieur.
 2. Décrivez le segment de référence et sa longueur réelle : par défaut, le grand côté vertical d’une feuille A4 (29,7 cm).
@@ -56,7 +56,11 @@ La marge aide à prioriser les vérifications ; elle ne prédit ni la survie ni 
 
 ## Navigation et personne de confiance
 
-Sur téléphone, le bouton **Menu**, en haut à côté de **Phytolie**, ouvre les six pages : Mes plantes, À faire, Ma maison, Personne de confiance, Mon espace et Paramètres. La page active est indiquée et le menu se ferme après sélection ; le bouton Retour Android ferme également le menu. L’accueil présente d’abord l’ajout d’une plante, puis les soins du jour et l’herbier. Le tri apparaît à partir de deux plantes. La collection s’actualise en revenant sur Mes plantes ; tirez aussi la liste vers le bas pour l’actualiser sur téléphone.
+Sur téléphone, la barre en bas donne accès à **Mes plantes**, **À faire**, **Ma maison** et **Plus**. **Plus** ouvre les pages secondaires : **Personne de confiance**, **Mon espace** et **Paramètres**. La page active est indiquée ; le menu se ferme après sélection, avec **Fermer**, ou avec le bouton Retour Android. Sur ordinateur, la navigation se trouve en haut ; elle passe en bas avec un texte fortement agrandi.
+
+Dans **Mes plantes**, recherchez par nom, espèce ou pièce : accents et majuscules ne changent pas les résultats. Combinez les filtres par pièce et **À vérifier aujourd’hui**, puis choisissez le tri par urgence ou par nom. Un résultat vide propose de réinitialiser la recherche et les filtres. Le résumé des soins ouvre directement **À faire**. La collection s’actualise en revenant sur Mes plantes ; tirez aussi la liste vers le bas pour l’actualiser sur téléphone.
+
+**Ajouter une plante** et **Modifier la fiche** suivent trois étapes : **La plante** (photo facultative, nom, espèce, pièce), **Ses besoins** (dimensions, emplacement, arrosage et dernier arrosage connu à l’ajout), puis **Récapitulatif** (vérification, rempotage et personne référente facultatifs). **Précédent** conserve les valeurs pendant la saisie. Le bouton final enregistre la fiche ; **Mes plantes** permet de quitter le formulaire sans enregistrer.
 
 Sur ordinateur, les textes sont agrandis à partir de 860 px de largeur. Chaque écran possède une adresse : `#/`, `#/a-faire`, `#/mon-espace`, `#/personne-de-confiance`, `#/compte`, `#/plantes/ajouter`, `#/plantes/<id>` et `#/plantes/<id>/modifier`. Les boutons précédent/suivant du navigateur et le rechargement conservent la page demandée. Hors des champs de saisie, **Ctrl+Z** (ou **Cmd+Z**) revient à l’accueil ; dans un champ, il continue d’annuler la saisie.
 

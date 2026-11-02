@@ -22,8 +22,8 @@ function ratio(a, b) {
   const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (values[0] + .05) / (values[1] + .05);
 }
-test('Enhanced contrast keeps text and button labels legible on every surface', () => {
-  for (const colors of [contrastPalette]) {
+test('Both palettes keep text and button labels legible on every surface', () => {
+  for (const colors of [palette, contrastPalette]) {
     for (const text of ['ink', 'muted', 'olive', 'terracotta']) {
       for (const background of ['paper', 'surface', 'sage']) {
         assert.ok(ratio(colors[text], colors[background]) >= 4.5, `${text} on ${background}: ${ratio(colors[text], colors[background])}`);

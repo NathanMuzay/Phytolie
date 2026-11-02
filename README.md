@@ -133,6 +133,7 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 ## Documentation
 
 - [Guide d’utilisation](docs/USAGE.md) : visuels, mesures, lumière, plan de maison, délégations et préférences.
+- [Refonte UX/UI web et mobile](docs/UX_UI.md) : parcours, choix de conception et captures.
 - [Développement](docs/DEVELOPMENT.md) : organisation, fichiers locaux, tests et compilation.
 - [Document de référence](docs/reference/PhytoSafe.pdf).
 

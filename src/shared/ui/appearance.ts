@@ -1,7 +1,7 @@
 export const palette = {
-  paper: '#F7F3E8', surface: '#FFFCF5', olive: '#2F4033',
-  ink: '#28372C', muted: '#354333', line: '#A8B49A',
-  sage: '#A8B49A', forest: '#2F4033', terracotta: '#B96D4F', onTerracotta: '#11180F',
+  paper: '#F6F7F2', surface: '#FFFFFF', olive: '#34553F',
+  ink: '#213B2D', muted: '#52604F', line: '#84917D',
+  sage: '#E5EDDF', forest: '#284D3B', terracotta: '#9B4D34', onTerracotta: '#FFFFFF',
 };
 export const contrastPalette: typeof palette = {
   paper: '#FFFFFF', surface: '#FFFFFF', olive: '#123F2A',

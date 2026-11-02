@@ -5,6 +5,7 @@ import { PlantVisual } from './PlantVisual';
 import { daysUntil, dueDate, type Plant } from '../../shared/model';
 import { wateringPlan } from './irrigation';
 import { wateringTolerance } from './tolerance';
+import { ActionButton as Action } from '../../shared/ui/ActionButton';
 import { fonts, palette, useReadableStyles } from '../../shared/ui/theme';
 
 const dateLabel = (date: Date) => date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
@@ -16,14 +17,6 @@ type Props = {
   onOpenPlant: (plant: Plant) => void;
   onAddPlant: () => void;
 };
-
-function Action({ title, onPress, disabled, secondary = false }: { title: string; onPress: () => void; disabled?: boolean; secondary?: boolean }) {
-  const styles = useReadableStyles(baseStyles);
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress}
-    style={({ pressed }) => [styles.action, secondary && styles.secondaryAction, (pressed || disabled) && { opacity: .5 }]}>
-    <Text style={[styles.actionText, secondary && styles.secondaryActionText]}>{title}</Text>
-  </Pressable>;
-}
 
 function CareCard({ plant, disabled, onWatered, onObserve, onOpenPlant }: Pick<Props, 'disabled' | 'onWatered' | 'onObserve' | 'onOpenPlant'> & { plant: Plant }) {
   const styles = useReadableStyles(baseStyles);
@@ -160,9 +153,6 @@ const baseStyles = StyleSheet.create({
   hintCopy: { flexGrow: 1, flexShrink: 1, gap: 4 }, hintTitle: { fontSize: 14, fontWeight: '600', lineHeight: 21, color: palette.ink },
   dose: { gap: 2 }, doseNumber: { fontFamily: fonts.editorial, fontSize: 25, color: palette.olive }, doseUnit: { fontSize: 14 }, doseCaption: { fontSize: 10, color: palette.muted },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  action: { minHeight: 48, maxWidth: '100%', alignSelf: 'flex-start', justifyContent: 'center', borderRadius: 10, paddingVertical: 13, paddingHorizontal: 18, borderWidth: 1, borderColor: palette.forest, backgroundColor: palette.forest },
-  actionText: { fontSize: 13, fontWeight: '600', textAlign: 'center', color: palette.surface },
-  secondaryAction: { backgroundColor: palette.surface, borderColor: palette.line }, secondaryActionText: { color: palette.olive },
   disclosure: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, minHeight: 44, paddingTop: 10, borderTopWidth: 1, borderColor: palette.line },
   disclosureText: { fontSize: 12, color: palette.olive, flexShrink: 1 }, details: { gap: 12 },
   agendaPanel: { backgroundColor: palette.surface, borderRadius: 18, borderWidth: 1, borderColor: palette.line, padding: 20, gap: 14 },
