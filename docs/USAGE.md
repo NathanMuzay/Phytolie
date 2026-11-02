@@ -2,11 +2,19 @@
 
 [Retour au README](../README.md) · [Développement](DEVELOPMENT.md)
 
+## Lire une fiche de plante
+
+La fiche met en avant la photo, la pièce, la prochaine vérification et les actions **J’ai arrosé** et **Terreau encore humide**. Sur ordinateur, photo et résumé sont côte à côte ; sur mobile, ils se suivent. Le nom et l’espèce ne sont pas répétés lorsqu’ils sont identiques.
+
+Les dimensions, la température, le terreau conseillé et les dates d’entretien sont présentés dans des cartes. Touchez une section pour ouvrir **Comprendre l’arrosage**, **Emplacement et lumière**, **À propos de cette plante** ou **Historique des arrosages**. Le bouton **Signaler un terreau sec** se trouve dans les détails d’arrosage. Les explications et les sources restent disponibles dans ces sections.
+
+**Modifier la fiche** se trouve en haut. La suppression se trouve en bas et demande une confirmation.
+
 ## Choisir le visuel d’une plante
 
 Dans « Ajouter une plante » ou « Modifier la fiche », choisissez **Ma photo** ou **Visuel botanique**. Après un scan, une identification avec au moins 80 % de confiance sélectionne automatiquement le visuel botanique. En dessous de ce seuil, choisissez une proposition pour déclencher le même comportement. Les illustrations locales couvrent Monstera deliciosa, Aloe vera, Ficus elastica et Nephrolepis exaltata ; pour les autres espèces, plant.id fournit une photo représentative avec son attribution et sa licence. En l’absence de photo de référence, votre photo personnelle reste affichée (ou une composition décorative si aucune photo n’est disponible). Le visuel suit l’espèce renseignée et le choix est sauvegardé avec la fiche.
 
-La photo personnelle reste conservée lorsque vous affichez un visuel botanique. Choisissez **Photo entière** pour éviter de couper les feuilles ou **Remplir le cadre** pour un affichage recadré. Le carnet et les fiches partagent un cadre adaptatif au format 4:3. L’identification et les mesures utilisent uniquement votre photo originale. La photo de référence nécessite une connexion ; changer manuellement l’espèce efface la référence de l’ancienne espèce. Redémarrez `npm run api` après cette mise à jour pour obtenir les images dans les réponses de scan.
+La photo personnelle reste conservée lorsque vous affichez un visuel botanique. Choisissez **Photo entière** pour éviter de couper les feuilles ou **Remplir le cadre** pour un affichage recadré. Le carnet utilise un cadre au format 4:3 ; la fiche adapte la hauteur du visuel à l’écran en conservant le cadrage choisi. L’identification et les mesures utilisent uniquement votre photo originale. La photo de référence nécessite une connexion ; changer manuellement l’espèce efface la référence de l’ancienne espèce. Redémarrez `npm run api` après cette mise à jour pour obtenir les images dans les réponses de scan.
 
 ## Affiner la lumière (facultatif)
 
@@ -45,7 +53,7 @@ L’intégration suit la documentation officielle [Images et vision](https://dev
 
 ## Marge de retard d’arrosage
 
-La fiche et l’écran « À faire » affichent une **marge indicative en heures**, une date limite indicative et l’état du retard. Le calcul utilise l’intervalle contextualisé (pot, substrat, température, exposition, cycle), multiplié par un coefficient de profil : 10 % pour les plantes à besoin d’humidité fréquent, 15 % pour les orchidées reconnues, 20 % pour les plantes vertes reconnues, 30 % pour les succulentes reconnues. Le résultat est arrondi à l’heure inférieure et plafonné à 72 heures. Ces coefficients sont des heuristiques produit non validées expérimentalement.
+La section **Comprendre l’arrosage** de la fiche et les conseils de l’écran « À faire » affichent une **marge indicative en heures**, une date limite indicative et l’état du retard. Le calcul utilise l’intervalle contextualisé (pot, substrat, température, exposition, cycle), multiplié par un coefficient de profil : 10 % pour les plantes à besoin d’humidité fréquent, 15 % pour les orchidées reconnues, 20 % pour les plantes vertes reconnues, 30 % pour les succulentes reconnues. Le résultat est arrondi à l’heure inférieure et plafonné à 72 heures. Ces coefficients sont des heuristiques produit non validées expérimentalement.
 
 - Un dernier arrosage connu, le calcul automatique, un profil reconnu et un drainage confirmé sont nécessaires. Les anciennes fiches manuelles restent compatibles, sans marge inventée.
 - À partir de 35 °C, aucune marge supplémentaire n’est proposée. À 5 °C ou moins, le calcul est indisponible.

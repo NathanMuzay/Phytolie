@@ -52,6 +52,7 @@ Ouvrez `.env` et renseignez :
 PLANT_ID_API_KEY=votre_vraie_cle
 EXPO_PUBLIC_API_URL=http://192.168.1.42:8787
 API_PORT=8787
+FOLIA_ALLOWED_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
 ```
 
 Remplacez `192.168.1.42` par l’adresse IPv4 locale de l’ordinateur. Sous Linux, vous pouvez la trouver avec `hostname -I`. N’utilisez pas `localhost` sur un téléphone physique : il désignerait le téléphone lui-même.
@@ -92,6 +93,8 @@ npm run web
 
 Ouvrez l’adresse affichée dans le terminal (généralement `http://localhost:8081`). L’aperçu web permet de tester le carnet et les formulaires ; les notifications locales nécessitent Android. La connexion ou l’inscription est obligatoire pour accéder à la collection, conservée par le serveur Folia. Les paramètres d’accessibilité restent disponibles avant connexion.
 
+Pour le navigateur, `FOLIA_ALLOWED_ORIGINS` dans `.env` doit contenir l’origine exacte de la page (protocole, adresse et port, sans slash final). Si Expo utilise un autre port, adaptez cette liste, puis redémarrez l’API. Après un changement de Wi-Fi, actualisez aussi `EXPO_PUBLIC_API_URL` avec la nouvelle IPv4 de l’ordinateur et redémarrez Expo. Pour un usage uniquement sur le navigateur de cet ordinateur, `EXPO_PUBLIC_API_URL=http://127.0.0.1:8787` évite de dépendre de l’adresse Wi-Fi ; sur un téléphone, utilisez l’IPv4 réseau de l’ordinateur.
+
 **Émulateur Android :** installez Android Studio, créez un appareil virtuel dans Device Manager et démarrez-le, puis :
 
 ```bash
@@ -121,6 +124,7 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 - Erreur liée à Node ou `File is not defined` : vérifiez `node --version`, puis `nvm use`.
 - QR code inaccessible : vérifiez le Wi-Fi, le pare-feu et le VPN. Vous pouvez essayer `npx expo start --tunnel` (connexion Internet et installation éventuelle du module de tunnel nécessaires).
 - Message « API non configurée » : vérifiez que `.env` existe, puis redémarrez Expo après toute modification du fichier.
+- Connexion au compte trop longue : vérifiez que `EXPO_PUBLIC_API_URL` contient l’IPv4 actuelle de l’ordinateur et que son adresse `/health` répond. Dans le navigateur, vérifiez aussi `FOLIA_ALLOWED_ORIGINS` (par exemple `http://localhost:8081`). Redémarrez l’API et Expo après correction ; les avertissements Node.js sur les modules et SQLite ne signifient pas que l’API a échoué.
 - Scan bloqué : ouvrez `http://<IP-de-votre-ordinateur>:8787/health` depuis le navigateur du téléphone. Une réponse `{"status":"ok"}` confirme que le serveur est joignable. Le scan vérifie cette connexion pendant 5 secondes maximum avant l’envoi de la photo. Après un changement de réseau, mettez à jour `EXPO_PUBLIC_API_URL` et redémarrez Expo.
 - Message « Impossible de contacter plant.id » : vérifiez que `npm run api` fonctionne, que `EXPO_PUBLIC_API_URL` contient l’IP de l’ordinateur et que le port `8787` est accessible depuis le téléphone. Le tunnel Expo ne rend pas automatiquement ce serveur API accessible.
 - Erreur 401 : la clé plant.id est incorrecte. Erreur 402 : crédits insuffisants. Erreur 403 : accès refusé. Erreur 429 : limite atteinte, vérifiez les quotas et le solde Kindwise.

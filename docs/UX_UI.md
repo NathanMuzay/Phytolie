@@ -15,6 +15,7 @@ Le programme et les ressources textuelles de la [formation Figma de Digidop](htt
 | Le résumé web des soins n’ouvrait pas les tâches. | Résumé actionnable sur toutes les tailles d’écran. | Accéder directement aux plantes à vérifier. |
 | L’ajout présentait un formulaire continu très long. | Trois étapes avec progression, validation avant de continuer, retour conservant les valeurs et récapitulatif avant sauvegarde. | Renseigner une catégorie d’informations à la fois. |
 | Le premier écran expliquait peu la valeur de l’application. | Connexion avec présentation sur ordinateur, formulaire compact sur mobile, onglets connexion/inscription, mot de passe affichable et validation de l’e-mail. | Comprendre le produit et réduire les erreurs de saisie. |
+| La fiche mélangeait les actions, la description et les explications techniques. | Résumé du prochain soin, actions en tête, repères en cartes et sections dépliables pour les détails. | Voir le prochain geste sans parcourir toutes les explications. |
 | Certains contrôles avaient des styles différents. | Bouton partagé sur connexion, collection, formulaires et soins ; palette commune actualisée. | Reconnaître les actions principales et secondaires. |
 | Les confirmations restaient fixes au-dessus du contenu. | Messages défilants avec bouton de fermeture distinct. | Garder le contenu accessible avec le texte agrandi. |
 
@@ -37,10 +38,12 @@ Captures du navigateur avec une collection fictive et une base de test temporair
 - [Navigation mobile](ux-ui/navigation-mobile.png)
 - [Soins sur mobile](ux-ui/soins-mobile.png)
 - [Récapitulatif d’ajout sur mobile](ux-ui/ajout-mobile.png)
+- [Fiche de plante sur ordinateur](ux-ui/fiche-web.png)
+- [Fiche de plante sur mobile](ux-ui/fiche-mobile.png)
 
 ## Vérification et limites
 
-La vérification comprend TypeScript, la suite automatisée du projet, les exports Expo web et Android, et des parcours dans Chrome sans interface avec la véritable API locale et des données fictives. Les parcours couvrent connexion au clavier, recherche avec accents, filtres combinés, navigation, ajout manuel complet, conservation des valeurs entre étapes et ouverture d’une fiche en modification. Les mises en page sont contrôlées à 1 440, 390, 320 et 860 px, ainsi qu’avec un texte à 200 % et les contrastes renforcés.
+La vérification comprend TypeScript, la suite automatisée du projet, les exports Expo web et Android, et des parcours dans Chrome sans interface avec la véritable API locale et des données fictives. Les parcours couvrent connexion au clavier, recherche avec accents, filtres combinés, navigation, ajout manuel complet, conservation des valeurs entre étapes et ouverture d’une fiche en modification. La fiche est aussi vérifiée avec ses sections repliées et dépliées, l’enregistrement d’un terreau humide, la confirmation d’un arrosage, la conservation de l’historique et l’annulation d’une suppression. Les mises en page sont contrôlées à 1 440, 390, 320 et 860 px, ainsi qu’avec un texte à 200 % et les contrastes renforcés.
 
 L’export Android valide le bundle, pas une exécution sur un téléphone. Les interactions natives caméra, capteur, notifications et clavier demandent encore une vérification sur appareil. Cette refonte n’inclut pas d’étude terrain ; un gain d’utilisabilité mesuré demanderait des essais avec les utilisateurs.
 
