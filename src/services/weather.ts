@@ -1,22 +1,25 @@
 export type City = { id: number; name: string; country: string; admin1?: string; latitude: number; longitude: number };
 export type Weather = { temperature: number; fetchedAt: string; cityId: number };
-async function json(url: string) {
+async function json(url: string, signal?: AbortSignal) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) controller.abort();
+  const timeout = setTimeout(abort, 8000);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error('Service météo indisponible.');
     return await response.json();
   } catch { throw new Error('Météo inaccessible. La température saisie reste utilisée. Réessayez.'); }
-  finally { clearTimeout(timeout); }
+  finally { clearTimeout(timeout); signal?.removeEventListener('abort', abort); }
 }
 export async function searchCities(query: string): Promise<City[]> {
   if (query.trim().length < 2) throw new Error('Saisissez au moins deux caractères.');
   const data = await json(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=5&language=fr&format=json`);
   return (Array.isArray(data.results) ? data.results : []).filter((c: City) => Number.isFinite(c.id) && typeof c.name === 'string' && Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
 }
-export async function fetchWeather(city: City): Promise<Weather> {
-  const data = await json(`https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}&longitude=${city.longitude}&current=temperature_2m`);
+export async function fetchWeather(city: City, signal?: AbortSignal): Promise<Weather> {
+  const data = await json(`https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}&longitude=${city.longitude}&current=temperature_2m`, signal);
   const temperature = data.current?.temperature_2m;
   if (!Number.isFinite(temperature) || temperature < -80 || temperature > 65) throw new Error('Température météo invalide. La température saisie reste utilisée.');
   return { temperature, fetchedAt: new Date().toISOString(), cityId: city.id };

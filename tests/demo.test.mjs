@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { demoProxy } from '../scripts/demo-proxy.cjs';
-import { configureDemoApiHost, demoApiBase, getApiBase } from '../src/services/apiBase.ts';
+import { configureApiHost, demoApiBase, getApiBase } from '../src/services/apiBase.ts';
 
 test('Demo uses the Expo tunnel for the API and ignores stale local IP configuration', () => {
   const previous = { mode: process.env.EXPO_PUBLIC_API_VIA_EXPO, url: process.env.EXPO_PUBLIC_API_URL };
@@ -12,14 +12,14 @@ test('Demo uses the Expo tunnel for the API and ignores stale local IP configura
     delete process.env.EXPO_PUBLIC_API_VIA_EXPO;
     assert.equal(getApiBase(), 'http://192.168.1.42:8787');
     process.env.EXPO_PUBLIC_API_VIA_EXPO = '1';
-    configureDemoApiHost('demo-8081.exp.direct:80');
+    configureApiHost('demo-8081.exp.direct:80');
     assert.equal(getApiBase(), 'https://demo-8081.exp.direct/folia-api');
     assert.equal(demoApiBase('192.168.1.42:8081'), 'http://192.168.1.42:8081/folia-api');
     assert.equal(demoApiBase('https://preview.example.test'), 'https://preview.example.test/folia-api');
-    configureDemoApiHost(undefined);
+    configureApiHost(undefined);
     assert.equal(getApiBase(), undefined);
   } finally {
-    configureDemoApiHost(undefined);
+    configureApiHost(undefined);
     for (const [key, value] of [['EXPO_PUBLIC_API_VIA_EXPO', previous.mode], ['EXPO_PUBLIC_API_URL', previous.url]]) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }

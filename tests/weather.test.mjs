@@ -24,3 +24,16 @@ test('Weather network failures and timeouts give a fallback message', async t =>
   t.mock.timers.tick(8000);
   await result;
 });
+
+test('Changing or disabling the city cancels its weather request immediately', async t => {
+  const controller = new AbortController();
+  let requestSignal;
+  t.mock.method(globalThis, 'fetch', (_url, { signal }) => {
+    requestSignal = signal;
+    return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('Abort'))));
+  });
+  const result = assert.rejects(fetchWeather(city, controller.signal), /Météo inaccessible/);
+  controller.abort();
+  await result;
+  assert.equal(requestSignal.aborted, true);
+});

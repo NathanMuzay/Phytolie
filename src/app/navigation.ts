@@ -1,4 +1,4 @@
-export type Page = 'home' | 'garden' | 'tasks' | 'settings' | 'preferences' | 'caretaker' | 'account' | 'new' | `plant/${string}` | `edit/${string}`;
+export type Page = 'home' | 'garden' | 'tasks' | 'settings' | 'preferences' | 'privacy' | 'caretaker' | 'account' | 'new' | `plant/${string}` | `edit/${string}`;
 export const mainPages = [
   { id: 'garden', label: 'Mes plantes', description: 'Votre collection' },
   { id: 'tasks', label: 'À faire', description: 'Les soins du jour' },
@@ -6,8 +6,9 @@ export const mainPages = [
   { id: 'caretaker', label: 'Personne de confiance', description: 'Partager les soins' },
   { id: 'settings', label: 'Mon espace', description: 'Rappels et météo' },
   { id: 'preferences', label: 'Paramètres', description: 'Accessibilité et compte' },
+  { id: 'privacy', label: 'Confidentialité', description: 'Données personnelles et RGPD' },
 ] as const;
-const paths: Record<string, Page> = { '/parametres': 'preferences', '/ma-maison': 'home', '/': 'garden', '/a-faire': 'tasks', '/mon-espace': 'settings', '/personne-de-confiance': 'caretaker', '/compte': 'account', '/plantes/ajouter': 'new' };
+const paths: Record<string, Page> = { '/confidentialite': 'privacy', '/parametres': 'preferences', '/ma-maison': 'home', '/': 'garden', '/a-faire': 'tasks', '/mon-espace': 'settings', '/personne-de-confiance': 'caretaker', '/compte': 'account', '/plantes/ajouter': 'new' };
 export function pageFromHash(hash: string): Page {
   const path = hash.replace(/^#/, '').split('?')[0] || '/';
   if (paths[path]) return paths[path];

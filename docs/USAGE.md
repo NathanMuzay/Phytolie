@@ -2,6 +2,16 @@
 
 [Retour au README](../README.md) · [Développement](DEVELOPMENT.md)
 
+## Consulter l’utilisation de ses données
+
+Dans **Mon espace**, ouvrez **Confidentialité et données personnelles (RGPD)**. La notice est aussi disponible dans **Plus → Confidentialité**, avant la connexion et à l’adresse `#/confidentialite`. Recherchez un mot comme « photo », « ville » ou « e-mail », puis ouvrez une catégorie pour consulter ses utilisations, destinataires, conservations et bases légales.
+
+Le contact est **Nathan MUZAY — nathan.muzay@epitech.eu**. Le bouton de contact prépare un e-mail dans votre messagerie et n’envoie rien automatiquement. La notice distingue les fonctions disponibles et les demandes à adresser au responsable, ainsi que les informations d’hébergement et de conservation encore à définir.
+
+## Actualiser la météo
+
+Dans **Mon espace → Météo extérieure**, recherchez une ville et sélectionnez le résultat correspondant. Choisir de nouveau la même ville relance la météo ; le bouton **Actualiser la météo** permet aussi de réessayer. Le message de chargement correspond à une requête en cours et disparaît après sa fin. Une requête qui n’aboutit pas est interrompue après huit secondes et affiche une erreur, avec utilisation de la température saisie dans la fiche. Changer de ville ou désactiver la météo annule la requête précédente.
+
 ## Lire une fiche de plante
 
 La fiche met en avant la photo, la pièce, la prochaine vérification et les actions **J’ai arrosé** et **Terreau encore humide**. Sur ordinateur, photo et résumé sont côte à côte ; sur mobile, ils se suivent. Le nom et l’espèce ne sont pas répétés lorsqu’ils sont identiques.

@@ -11,7 +11,7 @@ function MorePages({ page, navigate, large = false }: { page: Page; navigate: (p
   const styles = useReadableStyles(baseStyles);
   const { settings } = useAccessibility();
   const [open, setOpen] = useState(false);
-  const secondary = ['settings', 'preferences', 'caretaker'].includes(page);
+  const secondary = ['settings', 'preferences', 'caretaker', 'privacy'].includes(page);
   return <>
     <Pressable accessibilityRole="button" accessibilityLabel="Plus de pages" accessibilityState={{ expanded: open, selected: secondary }} onPress={() => setOpen(true)} style={[styles.navItem, large && styles.navItemLarge, secondary && styles.active]}><Text style={[styles.navText, secondary && styles.selectedText]}>Plus ···</Text></Pressable>
     <Modal visible={open} transparent animationType={settings.reduceMotion ? 'none' : 'fade'} onRequestClose={() => setOpen(false)}>

@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
-import { configureDemoApiHost } from '../services/apiBase';
+import { configureApiHost } from '../services/apiBase';
 import { AccessibilityProvider, useAccessibility } from '../shared/accessibility/AccessibilityProvider';
+import { PrivacyScreen } from '../features/privacy/PrivacyScreen';
 import { PreferencesScreen } from '../features/settings/PreferencesScreen';
 import { gardenWithHome } from '../features/home/homeGarden';
 import { HomeScreen, PlacementPicker } from '../features/home/HomeScreen';
@@ -35,7 +36,7 @@ import { AccountScreen } from '../features/accounts/AccountScreen';
 import { AccountSession, AccountError, loadAccountGarden, saveAccountGarden, logoutAccount, mergeLocalPlants } from '../features/accounts/accountApi';
 import { identifyPlant, PlantIdentification } from '../features/plants/plantApi';
 
-configureDemoApiHost(Constants.expoConfig?.hostUri);
+configureApiHost(Constants.expoConfig?.hostUri, Platform.OS === 'web' ? window.location.origin : undefined);
 
 const empty: Garden = { plants: [], reminders: false };
 const dateLabel = (date: Date) => date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
@@ -60,6 +61,7 @@ export default function App() {
 }
 
 function AppContent() {
+  const colors = useThemePalette();
   const [account, setAccount] = useState<AccountSession | null>(null);
   const [invitation, setInvitation] = useState(() => Platform.OS === 'web' ? invitationFromHash(window.location.hash) : '');
   const { page, navigate } = usePage();
@@ -76,8 +78,9 @@ function AppContent() {
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') expire(); });
     return () => { clearTimeout(timer); subscription.remove(); };
   }, [account, navigate]);
+  if (!account && page === 'privacy') return <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}><ScrollView contentContainerStyle={{ padding: 24, gap: 24, width: '100%', maxWidth: 980, alignSelf: 'center' }}><PrivacyScreen onBack={() => navigate('account')} backLabel="Connexion" /></ScrollView></SafeAreaView>;
   if (!account && page === 'preferences') return <SafeAreaView style={{ flex: 1 }}><ScrollView contentContainerStyle={{ padding: 24, gap: 24 }}><PreferencesScreen /><Button title="Retour à la connexion" onPress={() => navigate('account')} /></ScrollView></SafeAreaView>;
-  if (!account || page === 'account') return <AccountScreen onPreferences={() => navigate('preferences')} onConnected={session => { setAccount(session); navigate(invitation ? 'caretaker' : 'garden'); }} />;
+  if (!account || page === 'account') return <AccountScreen onPrivacy={() => navigate('privacy')} onPreferences={() => navigate('preferences')} onConnected={session => { setAccount(session); navigate(invitation ? 'caretaker' : 'garden'); }} />;
   return <GardenApp page={page} navigate={navigate} key={account.user.id} account={account} invitation={invitation} onAccepted={() => { setInvitation(''); navigate('caretaker'); }} onDisconnected={() => { setAccount(null); navigate('account'); }} />;
 }
 
@@ -95,6 +98,9 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
   const [cities, setCities] = useState<City[]>([]);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherStatus, setWeatherStatus] = useState('');
+  const [citySearchStatus, setCitySearchStatus] = useState('');
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherRefresh, setWeatherRefresh] = useState(0);
   const [searchingCity, setSearchingCity] = useState(false);
   const [reminderTimeInput, setReminderTimeInput] = useState(DEFAULT_REMINDER_TIME);
   const [reminderStatus, setReminderStatus] = useState('');
@@ -137,24 +143,43 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     return plants.map(p => p.irrigation?.location === 'outdoor' && temperature != null ? { ...p, temperature } : p);
   }
   useEffect(() => {
-    if (!garden.city) { setWeather(null); return; }
+    if (!garden.city) { setWeather(null); setWeatherStatus(''); setWeatherLoading(false); return; }
     const city = garden.city;
     let active = true;
+    let controller: AbortController | undefined;
     async function update() {
-      try { const next = await fetchWeather(city); if (active) { setWeather(next); setWeatherStatus(''); } }
-      catch (error) { if (active) { setWeather(null); setWeatherStatus(error instanceof Error ? error.message : 'Météo indisponible.'); } }
+      controller?.abort();
+      const request = new AbortController();
+      controller = request;
+      setWeatherLoading(true); setWeatherStatus('');
+      setWeather(previous => previous?.cityId === city.id ? previous : null);
+      try {
+        const next = await fetchWeather(city, request.signal);
+        if (active && !request.signal.aborted) setWeather(next);
+      } catch (error) {
+        if (active && !request.signal.aborted) { setWeather(null); setWeatherStatus(error instanceof Error ? error.message : 'Météo indisponible.'); }
+      } finally {
+        if (active && controller === request) setWeatherLoading(false);
+      }
     }
     void update();
     const timer = setInterval(() => void update(), 3600000);
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') void update(); });
-    return () => { active = false; clearInterval(timer); subscription.remove(); };
-  }, [garden.city?.id]);
+    return () => { active = false; controller?.abort(); clearInterval(timer); subscription.remove(); };
+  }, [garden.city?.id, garden.city?.latitude, garden.city?.longitude, weatherRefresh]);
   useEffect(() => { if (ready && !loadFailed) schedule(garden); }, [weather]);
   async function findCities() {
-    setSearchingCity(true); setCities([]);
-    try { const results = await searchCities(cityQuery); setCities(results); setWeatherStatus(results.length ? 'Choisissez la ville correspondante.' : 'Aucune ville trouvée.'); }
-    catch (error) { setWeatherStatus(error instanceof Error ? error.message : 'Recherche impossible.'); }
+    setSearchingCity(true); setCities([]); setCitySearchStatus('');
+    try { const results = await searchCities(cityQuery); setCities(results); setCitySearchStatus(results.length ? 'Choisissez la ville correspondante.' : 'Aucune ville trouvée.'); }
+    catch (error) { setCitySearchStatus(error instanceof Error ? error.message : 'Recherche impossible.'); }
     finally { setSearchingCity(false); }
+  }
+  async function selectCity(city: City) {
+    const sameCity = garden.city?.id === city.id && garden.city.latitude === city.latitude && garden.city.longitude === city.longitude;
+    if (await save({ ...garden, city })) {
+      setCities([]); setCitySearchStatus('');
+      if (sameCity) setWeatherRefresh(value => value + 1);
+    }
   }
   function schedule(next: Garden) {
     if (leaving.current || !mounted.current) return;
@@ -390,13 +415,26 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {tab === 'home' && <HomeScreen home={garden.home} plants={garden.plants} latitude={garden.city?.latitude} disabled={disabled} onSave={(home, positions, plants) => save(gardenWithHome({ ...garden, plants }, home, positions))} />}
       {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants} initialInvitation={invitation} onAccepted={onAccepted} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
       {tab === 'preferences' && <PreferencesScreen account={{ email: account.user.email, session: account, disabled: busy || scanning || measuring, onDisconnect: () => void switchAccount(), onRevoked: () => { void (async () => { try { await scheduleQueue.current; await syncReminders([], false); } finally { onDisconnected(); } })().catch(() => {}); } }} />}
+      {tab === 'privacy' && <PrivacyScreen onBack={() => navigate('settings')} />}
       {tab === 'settings' && <>
         <Text accessibilityRole="header" style={styles.title}>Mon espace</Text>
+        <View style={styles.task}><Text style={styles.sectionTitle}>Vos données personnelles</Text><Text style={styles.body}>Découvrez quelles données sont utilisées, pourquoi, à qui elles sont transmises et comment exercer vos droits.</Text><Button title="Confidentialité et données personnelles (RGPD)" secondary onPress={() => navigate('privacy')} /></View>
         <View style={styles.row}><Button title="Ma maison ↗" secondary onPress={() => navigate('home')} /><Button title="Personne de confiance ↗" secondary onPress={() => navigate('caretaker')} /></View>
         {account && <View style={styles.task}><Text style={styles.sectionTitle}>Ma collection en ligne</Text><Text style={styles.body}>Collection sauvegardée sur le serveur, actualisée à chaque retour dans Mes plantes. Sur téléphone, tirez la liste vers le bas pour l’actualiser.</Text><Button title="Importer mes plantes locales" secondary disabled={disabled} onPress={() => void importLocalGarden()} /><Text style={styles.footnote}>Import des plantes absentes et de leurs photos. Si les plans diffèrent, replacez les plantes importées.</Text></View>}
         <View style={[styles.settingsGrid, { flexDirection: twoSettingsColumns ? 'row' : 'column' }]} >
         <View style={[styles.task, twoSettingsColumns && styles.settingsPanel]}><View style={styles.section}><Text style={styles.sectionTitle}>Rappels à {garden.reminderTime ?? DEFAULT_REMINDER_TIME}</Text><Switch accessibilityLabel="Activer les rappels quotidiens" value={garden.reminders} disabled={disabled || Platform.OS === 'web'} trackColor={{ true: '#356148' }} onValueChange={async value => { try { if (value && !(await requestReminders())) { setNotice('Autorisez les notifications dans les paramètres Android.'); return; } await save({ ...garden, reminders: value }); } catch { setNotice('Impossible d’activer les notifications sur cet appareil.'); } }} /></View><Field label="Heure des rappels (HH:MM)" value={reminderTimeInput} onChange={value => { setReminderTimeInput(value); setReminderError(''); }} placeholder="09:00" /><Button title="Enregistrer l’heure" secondary disabled={disabled} onPress={() => void saveReminderTime()} />{!!reminderError && <Text accessibilityRole="alert" style={styles.error}>{reminderError}</Text>}{!!reminderStatus && <Text accessibilityLiveRegion="polite" style={styles.body}>{reminderStatus}</Text>}<Text style={styles.body}>{Platform.OS === 'web' ? 'Les notifications locales sont disponibles dans l’application Android.' : 'Rappel quotidien à l’échéance, jusqu’à confirmation. Programmation sur 30 jours renouvelée à l’ouverture. Après un changement de fuseau horaire, rouvrez l’application.'}</Text></View>
-        <View style={[styles.task, twoSettingsColumns && styles.settingsPanel]}><Text style={styles.sectionTitle}>Météo extérieure</Text><Field label="Rechercher une ville" value={cityQuery} onChange={setCityQuery} placeholder="Paris" /><Button title={searchingCity ? 'Recherche…' : 'Rechercher'} secondary disabled={disabled || searchingCity} onPress={() => void findCities()} />{cities.map(city => <Button key={city.id} secondary title={`${city.name}, ${city.admin1 || ''}, ${city.country || ''}`} disabled={disabled} onPress={async () => { if (await save({ ...garden, city })) { setCities([]); setWeatherStatus('Chargement de la météo…'); } }} />)}{garden.city && <Text style={styles.body}>{garden.city.name} : {outdoorTemperature(weather, garden.city) != null ? `${weather!.temperature} °C · relevé à ${new Date(weather!.fetchedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'température saisie utilisée en attendant la météo'}</Text>}{!!weatherStatus && <Text style={styles.body}>{weatherStatus}</Text>}{garden.city && <Button title="Désactiver la météo" secondary disabled={disabled} onPress={() => void save({ ...garden, city: undefined })} />}<Text style={styles.footnote}>Météo Open-Meteo, actualisée chaque heure pour les plantes dehors. En cas d’échec, température saisie utilisée. La pluie n’est pas déduite de l’arrosage.</Text></View>
+        <View style={[styles.task, twoSettingsColumns && styles.settingsPanel]}>
+          <Text style={styles.sectionTitle}>Météo extérieure</Text>
+          <Field label="Rechercher une ville" value={cityQuery} onChange={setCityQuery} placeholder="Paris" />
+          <Button title={searchingCity ? 'Recherche…' : 'Rechercher'} secondary disabled={disabled || searchingCity} onPress={() => void findCities()} />
+          {!!citySearchStatus && <Text accessibilityLiveRegion="polite" style={styles.body}>{citySearchStatus}</Text>}
+          {cities.map(city => <Button key={city.id} secondary title={`${city.name}, ${city.admin1 || ''}, ${city.country || ''}`} disabled={disabled} onPress={() => void selectCity(city)} />)}
+          {garden.city && <Text style={styles.body}>{garden.city.name} : {outdoorTemperature(weather, garden.city) != null ? `${weather!.temperature} °C · relevé à ${new Date(weather!.fetchedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'température saisie utilisée en attendant la météo'}</Text>}
+          {weatherLoading && <Text accessibilityLiveRegion="polite" style={styles.body}>{outdoorTemperature(weather, garden.city) != null ? 'Actualisation de la météo…' : 'Chargement de la météo…'}</Text>}
+          {!!weatherStatus && <Text accessibilityRole="alert" style={styles.body}>{weatherStatus}</Text>}
+          {garden.city && <View style={styles.row}><Button title={weatherLoading ? 'Actualisation…' : 'Actualiser la météo'} secondary disabled={disabled || weatherLoading} onPress={() => setWeatherRefresh(value => value + 1)} /><Button title="Désactiver la météo" secondary disabled={disabled} onPress={async () => { if (await save({ ...garden, city: undefined })) { setCities([]); setCitySearchStatus(''); } }} /></View>}
+          <Text style={styles.footnote}>Météo Open-Meteo, actualisée chaque heure pour les plantes dehors. En cas d’échec, température saisie utilisée. La pluie n’est pas déduite de l’arrosage.</Text>
+        </View>
         </View>
         <View style={styles.task}><Text style={styles.sectionTitle}>Données et photos</Text><Text style={styles.body}>Vos fiches et photos sont sauvegardées sur le serveur Phytolie. Identification : photo transmise à plant.id via le serveur. Mesure IA : photo transmise à OpenAI. Les mesures manuelles restent locales.</Text></View>
 
