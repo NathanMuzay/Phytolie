@@ -21,6 +21,9 @@ import { DimensionMeasure } from '../features/measurement/DimensionMeasure';
 import { type Measurement } from '../features/measurement/measurement';
 import { LightMeasure } from '../features/light/LightMeasure';
 import { type LightReading } from '../features/light/light';
+import { SubstratePicker } from '../features/plants/SubstratePicker';
+import { validSubstrate, type SubstrateSelection } from '../features/plants/substrates';
+import { recordSubstrateChange, setArchived } from '../features/plants/careRecords';
 import { PlantDetailScreen } from '../features/plants/PlantDetailScreen';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -92,6 +95,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
   const wide = Platform.OS === 'web' && width >= 860;
   const contentLimit = page === 'home' ? 1440 : page === 'garden' || page === 'tasks' ? 1280 : page === 'settings' ? 1080 : page === 'caretaker' ? 820 : 980;
   const twoSettingsColumns = wide && width >= 1000 && appearance.textScale < 1.5;
+  const [substrateDetails, setSubstrateDetails] = useState<SubstrateSelection>();
   const [irrigation, setIrrigation] = useState<Irrigation>({ ...defaultIrrigation });
   const [lastWateredInput, setLastWateredInput] = useState('');
   const [cityQuery, setCityQuery] = useState('');
@@ -332,6 +336,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     if (step > formStep) {
       if (formStep === 0 && !form.name.trim()) { setError('Donnez un nom à votre plante pour continuer.'); return; }
       if (formStep === 1) {
+        if (substrateDetails && !validSubstrate(substrateDetails)) { setError('Renseignez le nom et la composition du substrat réellement utilisé.'); return; }
         const interval = Number(form.interval), height = Number(form.height), pot = Number(form.pot), temperature = Number(form.temperature), amount = Number(form.waterAmount);
         if (!Number.isInteger(interval) || interval < 1 || interval > 90 || !Number.isFinite(height) || height <= 0 || !Number.isFinite(pot) || pot <= 0 || pot > 100 || !Number.isFinite(irrigation.depth) || irrigation.depth <= 0 || irrigation.depth > 100 || !form.temperature.trim() || !Number.isFinite(temperature) || temperature < -10 || temperature > 50 || !Number.isFinite(amount) || amount < 0 || amount > 5000) { setError('Vérifiez les dimensions, la température et les réglages d’arrosage avant de continuer.'); return; }
         if (form.width.trim() && (!Number.isFinite(Number(form.width)) || Number(form.width) < 1 || Number(form.width) > 1000)) { setError('Largeur de la plante : entre 1 et 1 000 cm.'); return; }
@@ -356,17 +361,22 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     if (form.width.trim() && (!Number.isFinite(Number(form.width)) || Number(form.width) < 1 || Number(form.width) > 1000)) { setError('Largeur de la plante : entre 1 et 1 000 cm.'); return; }
     const repot = form.repotDate ? new Date(`${form.repotDate}T12:00:00`) : new Date(new Date().setFullYear(new Date().getFullYear() + 1));
     if (form.repotDate && (!/^\d{4}-\d{2}-\d{2}$/.test(form.repotDate) || !Number.isFinite(+repot) || repot.toISOString().slice(0, 10) !== form.repotDate)) { setError('La date doit être valide, au format AAAA-MM-JJ.'); return; }
-    const plant: Plant = { ...form, position, lightReading, width: form.width.trim() ? Number(form.width) : undefined, measurement, irrigation, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? initialWatered?.toISOString() ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? (initialWatered ? [initialWatered.toISOString()] : []) };
+    let plant: Plant = { ...existing, ...form, substrateDetails, position, lightReading, width: form.width.trim() ? Number(form.width) : undefined, measurement, irrigation, id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: form.name.trim(), species: form.species.trim() || 'Espèce à préciser', room: form.room.trim() || 'Appartement', interval, height, pot, temperature, waterAmount, identificationConfidence: form.identificationConfidence ? Number(form.identificationConfidence) : undefined, lastWatered: existing?.lastWatered ?? initialWatered?.toISOString() ?? null, createdAt: existing?.createdAt ?? new Date().toISOString(), repotDate: repot.toISOString(), history: existing?.history ?? (initialWatered ? [initialWatered.toISOString()] : []) };
+    try {
+      if (substrateDetails && !validSubstrate(substrateDetails)) throw new Error('Renseignez le nom et la composition du substrat.');
+      if (existing) plant = recordSubstrateChange(existing, plant);
+    } catch (error) { setError(error instanceof Error ? error.message : 'Substrat invalide.'); return; }
     if (await save({ ...garden, plants: existing ? garden.plants.map(p => p.id === existing.id ? plant : p) : [...garden.plants, plant] })) { setModal(false); setEditingId(null); setForm(initialForm); setNotice(existing ? 'Fiche modifiée. Historique des arrosages conservé.' : initialWatered ? 'Plante ajoutée avec son dernier arrosage connu.' : 'Plante ajoutée. Aucun arrosage n’est enregistré pour le moment.'); }
   }
-  const sortedPlants = sortPlantsByUrgency(withWeather(garden.plants));
+  const sortedPlants = sortPlantsByUrgency(withWeather(garden.plants.filter(p => !p.archivedAt)));
   const due = sortedPlants.filter(p => daysUntil(dueDate(p)) <= 0);
   const current = withWeather(garden.plants).find(p => p.id === selected);
   const disabled = busy || scanning || measuring || refreshing || !ready || loadFailed;
-  function openAdd(enter = true) { setFormStep(0); setLightReading(undefined); setPosition(undefined); setMeasurement(undefined); setIrrigation({ ...defaultIrrigation }); setLastWateredInput(''); setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); if (enter) navigate('new'); }
+  function openAdd(enter = true) { setSubstrateDetails(undefined); setFormStep(0); setLightReading(undefined); setPosition(undefined); setMeasurement(undefined); setIrrigation({ ...defaultIrrigation }); setLastWateredInput(''); setSuggestions([]); setEditingId(null); setForm(initialForm); setError(''); setScanStatus(''); if (enter) navigate('new'); }
   function openEdit(plant: Plant, enter = true) {
     setFormStep(0);
     plant = garden.plants.find(p => p.id === plant.id) || plant;
+    setSubstrateDetails(plant.substrateDetails);
     setPosition(plant.position);
     setLightReading(plant.lightReading);
     setIrrigation(plant.irrigation || { ...defaultIrrigation, automatic: false }); setLastWateredInput('');
@@ -388,7 +398,8 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
     }
   }, [page, ready]);
   async function watered(p: Plant) {
-    if (await save({ ...garden, plants: garden.plants.map(item => item.id === p.id ? waterPlant(item) : item) })) setNotice(`Arrosage de ${p.name} enregistré.`);
+    try { if (await save({ ...garden, plants: garden.plants.map(item => item.id === p.id ? waterPlant(item) : item) })) setNotice(`Arrosage de ${p.name} enregistré.`); }
+    catch (error) { setNotice(error instanceof Error ? error.message : 'Arrosage impossible.'); }
   }
 
   async function observeMoisture(plant: Plant, moisture: 'dry' | 'moist') {
@@ -412,8 +423,8 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {!ready ? <Text style={styles.body}>Ouverture de votre jardin…</Text> : loadFailed && tab === 'garden' ? <View style={styles.task}><Text style={styles.sectionTitle}>Collection indisponible</Text><Text style={styles.body}>Vérifiez votre connexion au serveur, puis réessayez.</Text><Button title="Réessayer" onPress={() => void loadGarden()} /></View> : <>
       {tab === 'garden' && <CollectionScreen plants={withWeather(garden.plants)} disabled={disabled} onAdd={openAdd} onOpen={plant => { setSelected(plant.id); }} onTasks={() => navigate('tasks')} />}
       {tab === 'tasks' && <TasksScreen plants={sortedPlants} disabled={disabled} onWatered={plant => void watered(plant)} onObserve={(plant, moisture) => void observeMoisture(plant, moisture)} onOpenPlant={plant => { setSelected(plant.id); }} onAddPlant={garden.plants.length ? () => navigate('garden') : openAdd} />}
-      {tab === 'home' && <HomeScreen home={garden.home} plants={garden.plants} latitude={garden.city?.latitude} disabled={disabled} onSave={(home, positions, plants) => save(gardenWithHome({ ...garden, plants }, home, positions))} />}
-      {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants} initialInvitation={invitation} onAccepted={onAccepted} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
+      {tab === 'home' && <HomeScreen home={garden.home} plants={garden.plants.filter(p => !p.archivedAt)} latitude={garden.city?.latitude} disabled={disabled} onSave={(home, positions, plants) => save(gardenWithHome({ ...garden, plants: [...plants, ...garden.plants.filter(p => p.archivedAt)] }, home, positions))} />}
+      {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants.filter(p => !p.archivedAt)} initialInvitation={invitation} onAccepted={onAccepted} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
       {tab === 'preferences' && <PreferencesScreen account={{ email: account.user.email, session: account, disabled: busy || scanning || measuring, onDisconnect: () => void switchAccount(), onRevoked: () => { void (async () => { try { await scheduleQueue.current; await syncReminders([], false); } finally { onDisconnected(); } })().catch(() => {}); } }} />}
       {tab === 'privacy' && <PrivacyScreen onBack={() => navigate('settings')} />}
       {tab === 'settings' && <>
@@ -483,11 +494,11 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {([
         ['material', 'Matériau du pot', [['plastic', 'Plastique / émaillé'], ['terracotta', 'Terre cuite']]],
         ['drainage', 'Trous de drainage', [['yes', 'Oui'], ['no', 'Non'], ['unknown', 'À vérifier']]],
-        ['substrate', 'Rétention du terreau réel', [['standard', 'Standard'], ['draining', 'Très drainant'], ['retentive', 'Rétenteur'], ['bark', 'Écorces']]],
         ['location', 'Emplacement', [['indoor', 'Intérieur'], ['outdoor', 'Extérieur']]],
         ['exposure', 'Exposition', [['shade', 'Faible lumière'], ['indirect', 'Lumière indirecte'], ['sun', 'Soleil direct']]],
         ['season', 'Cycle actuel de la plante', [['growing', 'Croissance'], ['rest', 'Repos végétatif']]],
       ] as const).map(([key, label, options]) => <View key={key} style={styles.field}><Text style={styles.label}>{label}</Text><View style={[styles.row, { flexWrap: 'wrap' }]}>{options.map(([value, title]) => <Button key={value} title={`${irrigation[key] === value ? '✓ ' : ''}${title}`} secondary={irrigation[key] !== value} onPress={() => setIrrigation(c => ({ ...c, [key]: value }))} />)}</View>{key === 'exposure' && <LightMeasure key={editingId ?? 'new'} reading={lightReading} room={form.room} active={modal} disabled={disabled} onChange={setLightReading} />}</View>)}
+      <SubstratePicker value={substrateDetails} fallbackType={irrigation.substrate} disabled={disabled} onChange={value => { setSubstrateDetails(value); setIrrigation(previous => ({ ...previous, substrate: value.type })); }} />
       {!editingId && <Field label="Dernier arrosage connu (AAAA-MM-JJ, facultatif)" value={lastWateredInput} onChange={setLastWateredInput} />}
       <Text style={styles.body}>{preview.instruction}</Text><Text style={styles.body}>Prochaine vérification : {Number.isFinite(+preview.nextCheck) ? dateLabel(preview.nextCheck) : 'date à corriger'}</Text>{preview.reasons.map(reason => <Text key={reason} style={styles.footnote}>{reason}</Text>)}<Text style={styles.footnote}>Le cycle est choisi selon la plante, sans supposer l’hémisphère. Sans capteur, l’humidité doit être vérifiée sur la fiche. Les dimensions décrivent le pot intérieur, pas le cache-pot.</Text></View>
       </>}
@@ -507,6 +518,8 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
         {noticeMessage}
         {current && <PlantDetailScreen key={current.id} plant={current} home={garden.home} caretaker={garden.caretaker} disabled={disabled}
           onBack={() => setSelected(null)} onEdit={() => openEdit(current)} onPlan={() => navigate('home')} onCaretaker={() => navigate('caretaker')}
+          onSavePlant={async (next, message) => { const ok = await save({ ...garden, plants: garden.plants.map(p => p.id === next.id ? next : p) }); if (ok) setNotice(message); return ok; }}
+          onArchive={async () => { if (await save({ ...garden, plants: garden.plants.map(p => p.id === current.id ? setArchived(p, !p.archivedAt) : p) })) { setNotice(current.archivedAt ? 'Plante restaurée. Rappels réactivés selon vos réglages.' : 'Plante archivée. Ses données sont conservées et ses rappels suspendus.'); setSelected(null); } }}
           onWatered={() => void watered(current)} onObserve={moisture => void observeMoisture(current, moisture)}
           onDelete={async () => { if (await save({ ...garden, plants: garden.plants.filter(plant => plant.id !== current.id) })) setSelected(null); }} />}
       </ScrollView>

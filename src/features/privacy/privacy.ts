@@ -69,10 +69,10 @@ export const dataUses: DataUse[] = [
   {
     id: 'history', title: 'Arrosages et historique',
     purpose: 'Calculer les prochaines échéances à partir des soins confirmés et retrouver les opérations effectuées.',
-    data: 'Date du dernier arrosage et dates des confirmations. Pour les soins délégués : identifiants de l’invitation, de la plante et de la personne ayant confirmé, date d’arrosage et adresse e-mail de l’invité présentée au propriétaire.',
-    required: 'Le dernier arrosage connu est facultatif à l’ajout. Une confirmation enregistre sa date. Les actions d’un invité sont attribuées à son compte.',
+    data: 'Date du dernier arrosage ; dates et heures des soins, quantité réellement versée facultative, notes, identifiants et dates d’enregistrement, correction et annulation. Rempotages : dimensions des anciens et nouveaux pots, substrat choisi avec nom, composition, profil de rétention, provenance et référence produit facultative. Changements de substrat : ancienne et nouvelle description. Date d’archivage de la plante. Pour les soins délégués : identifiants de l’invitation, de la plante et de la personne ayant confirmé, date d’arrosage et adresse e-mail de l’invité présentée au propriétaire.',
+    required: 'Le dernier arrosage connu est facultatif à l’ajout. Une confirmation enregistre sa date ; quantité et note sont facultatives. Le rempotage demande le pot, le substrat et une prochaine date de contrôle. Les actions d’un invité sont attribuées à son compte.',
     recipients: 'Votre compte, API Phytolie et personne invitée pour les plantes confiées. Le propriétaire peut consulter les actions de ses invités.',
-    retention: 'L’historique de la fiche conserve les 100 derniers arrosages. Le journal serveur des actions déléguées a une conservation distincte : aucune purge automatique n’est actuellement programmée.', basis: 'sharing',
+    retention: 'La fiche conserve jusqu’à 500 événements de soin ; au-delà, un nouvel ajout est refusé sans effacer l’historique. Les 100 derniers arrosages actifs alimentent aussi les anciens champs de compatibilité. Une annulation reste visible dans le journal et ne compte plus dans les échéances. L’archivage conserve la fiche et suspend ses rappels et son accès par les invités ; la restauration réactive ces fonctions selon vos réglages et invitations encore valides. Supprimer la plante retire son journal de la collection active. Le journal serveur des actions déléguées a une conservation distincte : aucune purge automatique n’est actuellement programmée.', basis: 'sharing',
   },
   {
     id: 'home', title: 'Plan de maison et emplacements',

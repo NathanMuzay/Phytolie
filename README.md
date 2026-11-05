@@ -213,3 +213,9 @@ docs/                    Guides et document de référence
 ```
 
 Le code client est dans `src/`, le serveur dans `server/`. Les commandes restent `npm start`, `npm run web`, `npm run android` et `npm run api`. Pour vérifier le projet : `npm run typecheck` puis `npm test`.
+
+## Contribution et suivi des livraisons
+
+Les conventions de branches, commits et revues sont décrites dans [CONTRIBUTING.md](CONTRIBUTING.md). Les modèles GitHub demandent une description et une validation. Chaque pull request déclenche les contrôles et un export Expo Web/Android.
+
+Le détail des 4 issues majeures et 8 mineures du lot « collection et soins » est dans [docs/ISSUES_DELIVERY.md](docs/ISSUES_DELIVERY.md).

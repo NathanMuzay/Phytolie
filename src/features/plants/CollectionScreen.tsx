@@ -16,16 +16,18 @@ export function CollectionScreen({ plants, disabled, onAdd, onOpen, onTasks }: {
   const { width } = useWindowDimensions();
   const { settings } = useAccessibility();
   const wide = Platform.OS === 'web' && width >= 860;
+  const [archived, setArchived] = useState(false);
+  const scope = plants.filter(plant => !!plant.archivedAt === archived);
   const [query, setQuery] = useState('');
   const [room, setRoom] = useState<string | null>(null);
   const [onlyDue, setOnlyDue] = useState(false);
   const [sort, setSort] = useState<'urgency' | 'name'>('urgency');
   const [gridWidth, setGridWidth] = useState(0);
-  const rooms = [...new Set(plants.map(plant => plant.room))].sort((a, b) => a.localeCompare(b, 'fr'));
+  const rooms = [...new Set(scope.map(plant => plant.room))].sort((a, b) => a.localeCompare(b, 'fr'));
   const activeRoom = room && rooms.includes(room) ? room : null;
-  const due = plants.filter(plant => daysUntil(dueDate(plant)) <= 0).length;
+  const due = plants.filter(plant => !plant.archivedAt && daysUntil(dueDate(plant)) <= 0).length;
   const ordered = sort === 'urgency' ? sortPlantsByUrgency(plants) : [...plants].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  const visible = filterCollection(ordered, query, activeRoom, onlyDue);
+  const visible = filterCollection(ordered, query, activeRoom, archived ? false : onlyDue, new Date(), archived);
   const columns = Math.min(settings.textScale >= 1.75 ? 1 : settings.textScale >= 1.3 ? 2 : 3, Math.max(1, Math.floor((gridWidth + 20) / 290)));
   function reset() { setQuery(''); setRoom(null); setOnlyDue(false); }
   return <View style={styles.screen}>
@@ -33,19 +35,20 @@ export function CollectionScreen({ plants, disabled, onAdd, onOpen, onTasks }: {
       <View style={styles.headingCopy}><Text style={styles.eyebrow}>LE BONHEUR PREND RACINE</Text><Text accessibilityRole="header" style={styles.title}>Mes plantes</Text><Text style={styles.body}>{plants.length ? (wide ? 'Votre petit coin de nature, un soin à la fois.' : `${plants.length} plante${plants.length > 1 ? 's' : ''} · ${rooms.length} pièce${rooms.length > 1 ? 's' : ''} · Un soin à la fois.`) : 'Faites une place à votre première plante.'}</Text></View>
       <ActionButton title="＋ Ajouter une plante" onPress={onAdd} disabled={disabled} fullWidth={!wide} />
     </View>
-    {!!plants.length && <View style={[styles.overview, wide && settings.textScale < 1.5 && styles.overviewWide]}>
-      {wide && <View style={styles.metrics}><View style={styles.metric}><Text style={styles.metricValue}>{plants.length}</Text><Text style={styles.small}>plante{plants.length > 1 ? 's' : ''}</Text></View><View style={[styles.metric, styles.metricBorder]}><Text style={styles.metricValue}>{rooms.length}</Text><Text style={styles.small}>pièce{rooms.length > 1 ? 's' : ''}</Text></View></View>}
+    {!!plants.length && <View style={styles.sortRow}>{[false, true].map(value => <ActionButton key={String(value)} title={`${value ? 'Archivées' : 'Actives'} (${plants.filter(p => !!p.archivedAt === value).length})`} secondary={archived !== value} onPress={() => { setArchived(value); reset(); }} />)}</View>}
+    {!!scope.length && !archived && <View style={[styles.overview, wide && settings.textScale < 1.5 && styles.overviewWide]}>
+      {wide && <View style={styles.metrics}><View style={styles.metric}><Text style={styles.metricValue}>{scope.length}</Text><Text style={styles.small}>plante{plants.length > 1 ? 's' : ''}</Text></View><View style={[styles.metric, styles.metricBorder]}><Text style={styles.metricValue}>{rooms.length}</Text><Text style={styles.small}>pièce{rooms.length > 1 ? 's' : ''}</Text></View></View>}
       <Pressable accessibilityRole="button" accessibilityLabel={`${due} plantes à vérifier aujourd’hui. Ouvrir À faire`} onPress={onTasks} style={({ pressed }) => [styles.care, pressed && { opacity: .65 }]}>
         <View style={styles.careMark}><Text style={styles.careNumber}>{due ? due : '✓'}</Text></View><View style={styles.careCopy}><Text style={styles.careTitle}>{due ? 'Les soins du jour vous attendent' : 'Tout est à jour aujourd’hui'}</Text><Text style={styles.small}>{due ? `${due} plante${due > 1 ? 's' : ''} à vérifier · Voir les soins` : 'Consulter les prochaines vérifications'}</Text></View><Text style={styles.arrow}>→</Text>
       </Pressable>
     </View>}
     {!!plants.length && <View style={styles.tools}>
-      <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>Mon herbier</Text><Text accessibilityLiveRegion="polite" style={styles.small}>{visible.length} sur {plants.length} plante{plants.length > 1 ? 's' : ''}</Text></View>
+      <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{archived ? 'Plantes archivées' : 'Mon herbier'}</Text><Text accessibilityLiveRegion="polite" style={styles.small}>{visible.length} sur {scope.length} plante{plants.length > 1 ? 's' : ''}</Text></View>
       <View style={styles.search}><Text accessible={false} style={styles.searchIcon}>⌕</Text><TextInput accessibilityLabel="Rechercher une plante, une espèce ou une pièce" placeholder="Rechercher une plante, une espèce…" placeholderTextColor={colors.muted} value={query} onChangeText={setQuery} autoCorrect={false} returnKeyType="search" style={styles.searchInput} />{!!query && <Pressable accessibilityRole="button" accessibilityLabel="Effacer la recherche" onPress={() => setQuery('')} style={styles.clear}><Text style={styles.body}>×</Text></Pressable>}</View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} accessibilityLabel="Filtrer par pièce">
         {[null, ...rooms].map(value => <Pressable key={value ?? '__all'} accessibilityRole="button" accessibilityState={{ selected: activeRoom === value }} onPress={() => setRoom(value)} style={[styles.chip, activeRoom === value && styles.chipActive]}><Text style={[styles.chipText, activeRoom === value && styles.chipActiveText]}>{value ?? 'Toutes les pièces'}</Text></Pressable>)}
       </ScrollView>
-      <View style={styles.sortRow}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: onlyDue }} onPress={() => setOnlyDue(value => !value)} style={styles.sortButton}><Text style={styles.sortText}>{onlyDue ? '☑' : '☐'} À vérifier aujourd’hui</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Tri : ${sort === 'urgency' ? 'priorité aux soins' : 'nom de A à Z'}. Changer le tri`} onPress={() => setSort(value => value === 'urgency' ? 'name' : 'urgency')} style={styles.sortButton}><Text style={styles.sortText}>↕ {sort === 'urgency' ? 'Priorité aux soins' : 'Nom de A à Z'}</Text></Pressable></View>
+      <View style={styles.sortRow}>{!archived && <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: onlyDue }} onPress={() => setOnlyDue(value => !value)} style={styles.sortButton}><Text style={styles.sortText}>{onlyDue ? '☑' : '☐'} À vérifier aujourd’hui</Text></Pressable>}<Pressable accessibilityRole="button" accessibilityLabel={`Tri : ${sort === 'urgency' ? 'priorité aux soins' : 'nom de A à Z'}. Changer le tri`} onPress={() => setSort(value => value === 'urgency' ? 'name' : 'urgency')} style={styles.sortButton}><Text style={styles.sortText}>↕ {sort === 'urgency' ? 'Priorité aux soins' : 'Nom de A à Z'}</Text></Pressable></View>
     </View>}
     {!plants.length && <View style={styles.empty}>
       <Image source={botanicalPhoto} accessibilityLabel="Composition botanique de monstera en pot" resizeMode="contain" style={styles.emptyPhoto} />
@@ -53,12 +56,12 @@ export function CollectionScreen({ plants, disabled, onAdd, onOpen, onTasks }: {
       <ActionButton title="Ajouter ma première plante" onPress={onAdd} disabled={disabled} />
       <Text style={styles.small}>Photo ou saisie manuelle · Fiche modifiable à tout moment</Text>
     </View>}
-    {!!plants.length && !visible.length && <View style={styles.noResults}><Text accessibilityRole="header" style={styles.sectionTitle}>Aucune plante trouvée</Text><Text style={styles.body}>Essayez un autre nom ou élargissez vos filtres.</Text><ActionButton title="Réinitialiser la recherche et les filtres" secondary onPress={reset} /></View>}
+    {!!plants.length && !visible.length && <View style={styles.noResults}><Text accessibilityRole="header" style={styles.sectionTitle}>{scope.length ? 'Aucune plante trouvée' : archived ? 'Aucune plante archivée' : 'Aucune plante active'}</Text><Text style={styles.body}>{scope.length ? 'Essayez un autre nom ou élargissez vos filtres.' : archived ? 'Les plantes que vous archiverez resteront accessibles ici.' : 'Ajoutez une plante ou restaurez une fiche depuis les archives.'}</Text><ActionButton title="Réinitialiser la recherche et les filtres" secondary onPress={reset} /></View>}
     <View style={styles.grid} onLayout={event => setGridWidth(event.nativeEvent.layout.width)}>{visible.map(plant => {
       const days = daysUntil(dueDate(plant));
-      return <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plant.name}, ${plant.room}, ${days <= 0 ? 'à vérifier' : `vérification dans ${days} jours`}`} onPress={() => onOpen(plant)} style={({ pressed }) => [styles.card, { width: columns === 1 ? '100%' : (gridWidth - 20 * (columns - 1)) / columns }, pressed && { opacity: .7 }]}>
+      return <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plant.name}, ${plant.room}, ${plant.archivedAt ? 'archivée' : days <= 0 ? 'à vérifier' : `vérification dans ${days} jours`}`} onPress={() => onOpen(plant)} style={({ pressed }) => [styles.card, { width: columns === 1 ? '100%' : (gridWidth - 20 * (columns - 1)) / columns }, pressed && { opacity: .7 }]}>
         <PlantVisual plant={plant} style={styles.cardPhoto} />
-        <View style={styles.cardCopy}><View style={styles.cardHeading}><Text style={styles.room}>{plant.room}</Text><Text accessible={false} style={styles.arrow}>↗</Text></View><Text style={styles.plantName}>{plant.name}</Text><Text style={styles.small}>{plant.species}</Text><View style={[styles.status, days <= 0 && styles.statusDue]}><Text style={[styles.statusText, days <= 0 && styles.statusDueText]}>{days < 0 ? `À vérifier · ${Math.abs(days)} j de retard` : days === 0 ? 'À vérifier aujourd’hui' : days === 1 ? 'Prochaine vérification demain' : `À vérifier dans ${days} jours`}</Text></View><Text style={styles.caption}>{preferredPhotoMode(plant) === 'personal' ? 'Votre photo personnelle' : botanicalLabel(plant)}</Text></View>
+        <View style={styles.cardCopy}><View style={styles.cardHeading}><Text style={styles.room}>{plant.room}</Text><Text accessible={false} style={styles.arrow}>↗</Text></View><Text style={styles.plantName}>{plant.name}</Text><Text style={styles.small}>{plant.species}</Text><View style={[styles.status, !plant.archivedAt && days <= 0 && styles.statusDue]}><Text style={[styles.statusText, !plant.archivedAt && days <= 0 && styles.statusDueText]}>{plant.archivedAt ? 'Archivée · ouvrir pour restaurer' : days < 0 ? `À vérifier · ${Math.abs(days)} j de retard` : days === 0 ? 'À vérifier aujourd’hui' : days === 1 ? 'Prochaine vérification demain' : `À vérifier dans ${days} jours`}</Text></View><Text style={styles.caption}>{preferredPhotoMode(plant) === 'personal' ? 'Votre photo personnelle' : botanicalLabel(plant)}</Text></View>
       </Pressable>;
     })}</View>
   </View>;

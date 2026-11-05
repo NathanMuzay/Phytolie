@@ -9,6 +9,8 @@ import { estimatePlacement, type HomePlan } from '../home/home';
 import { LightSummary } from '../light/LightMeasure';
 import { botanicalLabel, preferredPhotoMode } from './botanical';
 import { wateringPlan } from './irrigation';
+import { CareJournal } from './CareJournal';
+import { currentSubstrate } from './careRecords';
 import { PlantVisual } from './PlantVisual';
 import { wateringTolerance } from './tolerance';
 
@@ -26,6 +28,8 @@ type Props = {
   onWatered: () => void;
   onObserve: (moisture: 'dry' | 'moist') => void;
   onDelete: () => void;
+  onArchive: () => void;
+  onSavePlant: (next: Plant, message: string) => Promise<boolean>;
 };
 
 function DetailSection({ title, summary, children }: { title: string; summary: string; children: ReactNode }) {
@@ -45,7 +49,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return <View style={styles.fact}><Text style={styles.small}>{label}</Text><Text style={styles.factValue}>{value}</Text></View>;
 }
 
-export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, onEdit, onPlan, onCaretaker, onWatered, onObserve, onDelete }: Props) {
+export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, onEdit, onPlan, onCaretaker, onWatered, onObserve, onDelete, onArchive, onSavePlant }: Props) {
   const styles = useReadableStyles(baseStyles);
   const { width } = useWindowDimensions();
   const { settings } = useAccessibility();
@@ -68,21 +72,22 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
       <Pressable accessibilityRole="button" onPress={onBack} style={styles.back}><Text style={styles.backText}>← Mes plantes</Text></Pressable>
       <ActionButton title="Modifier la fiche" secondary disabled={disabled} onPress={onEdit} />
     </View>
+    {plant.archivedAt && <View style={styles.note}><Text style={styles.body}>Plante archivée le {fullDate(plant.archivedAt)}. Historique conservé ; soins, rappels et accès des invités suspendus.</Text><ActionButton title="Restaurer cette plante" disabled={disabled} onPress={onArchive} /></View>}
     {!twoColumns && identity}
     <View style={[styles.hero, twoColumns && styles.heroWide]}>
       <View style={[styles.photoPanel, twoColumns && styles.photoWide]}><PlantVisual plant={plant} style={{ height: twoColumns ? 330 : 200, aspectRatio: undefined }} /><Text style={styles.photoLabel}>{photoLabel}</Text></View>
       <View style={[styles.heroCopy, twoColumns && styles.heroCopyWide]}>
         {twoColumns && identity}
-        <View style={styles.nextCare}>
+        <View style={styles.nextCare}>{!plant.archivedAt && <>
           <View style={styles.careHeading}><Text style={styles.eyebrow}>PROCHAINE VÉRIFICATION</Text><Text style={[styles.status, days <= 0 && styles.statusDue]}>{days < 0 ? `Retard de ${Math.abs(days)} j` : days === 0 ? 'Aujourd’hui' : days === 1 ? 'Demain' : `Dans ${days} jours`}</Text></View>
           <Text style={styles.careDate}>{dateLabel(plan.nextCheck)}</Text>
           <Text style={styles.body}>{plan.instruction}</Text>
           {plan.amount > 0 && <Text style={styles.dose}>{plan.amount} ml indicatifs · seulement si le terreau a besoin d’eau</Text>}
-        </View>
-        <View style={[styles.actions, !twoColumns && { flexDirection: 'column', flexWrap: 'nowrap', width: '100%' }]}>
+        </>}</View>
+        {!plant.archivedAt && <View style={[styles.actions, !twoColumns && { flexDirection: 'column', flexWrap: 'nowrap', width: '100%' }]}>
           <ActionButton title={wateredToday ? 'Arrosage enregistré aujourd’hui' : 'J’ai arrosé'} fullWidth={!twoColumns} disabled={disabled || wateredToday} onPress={onWatered} />
           <ActionButton title="Terreau encore humide" secondary fullWidth={!twoColumns} disabled={disabled} onPress={() => onObserve('moist')} />
-        </View>
+        </View>}
         <Text style={styles.small}>{plant.lastWatered ? `Dernier arrosage : ${fullDate(plant.lastWatered)}` : 'Aucun arrosage enregistré pour le moment.'}</Text>
       </View>
     </View>
@@ -94,6 +99,8 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
     <View style={[styles.detailsLayout, twoColumns && styles.detailsWide]}>
       <View style={[styles.essentials, twoColumns && styles.essentialsWide]}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Ses repères</Text>
+        <Fact label="Substrat actuel" value={currentSubstrate(plant).name} />
+        <Text style={styles.small}>{currentSubstrate(plant).composition}</Text>
         <Fact label="Terreau conseillé" value={plant.soil || 'À renseigner'} />
         <Fact label="Rythme de vérification" value={`Tous les ${plan.interval} jours`} />
         <Fact label="Rempotage à vérifier" value={fullDate(plant.repotDate)} />
@@ -102,7 +109,7 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
       <View style={styles.sections}>
         <DetailSection title="Comprendre l’arrosage" summary="Calcul, observations et marge de retard">
           {!!plant.irrigation?.checkedAt && <Text style={styles.body}>Dernière observation : terreau {plant.irrigation.moisture === 'moist' ? 'humide' : 'sec'}, le {fullDate(plant.irrigation.checkedAt)}.</Text>}
-          <ActionButton title="Signaler un terreau sec" secondary disabled={disabled} onPress={() => onObserve('dry')} />
+          <ActionButton title="Signaler un terreau sec" secondary disabled={disabled || !!plant.archivedAt} onPress={() => onObserve('dry')} />
           <Text style={styles.detailHeading}>Comment le conseil est calculé</Text>
           {plan.reasons.map(reason => <Text key={reason} style={styles.body}>{reason}</Text>)}
           {!!plant.wateringAdvice && <><Text style={styles.detailHeading}>Conseil de plant.id</Text><Text style={styles.body}>{plant.wateringAdvice}</Text></>}
@@ -121,9 +128,7 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
           {plant.width != null && <Fact label="Largeur de la plante" value={`${plant.width} cm`} />}
           {plant.measurement && <Text style={styles.small}>Dimensions estimées sur photo le {fullDate(plant.measurement.measuredAt)}, avec un repère de {plant.measurement.referenceCm} cm.</Text>}
         </DetailSection>
-        <DetailSection title="Historique des arrosages" summary={plant.history.length ? `${plant.history.length} arrosage${plant.history.length > 1 ? 's' : ''} enregistré${plant.history.length > 1 ? 's' : ''}` : 'Aucun arrosage enregistré'}>
-          {plant.history.length ? plant.history.map((entry, index) => <View key={`${entry}-${index}`} style={styles.historyRow}><View style={styles.historyDot} /><View style={styles.historyCopy}><Text style={styles.factValue}>{fullDate(entry)}</Text><Text style={styles.small}>Arrosage confirmé à {new Date(entry).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text></View><Text style={styles.historyCheck}>✓</Text></View>) : <Text style={styles.body}>Vos prochains arrosages confirmés apparaîtront ici.</Text>}
-        </DetailSection>
+        <CareJournal plant={plant} disabled={disabled} onSave={onSavePlant} />
         {!!(caretaker || plant.caretaker) && <DetailSection title="Personne de confiance" summary={caretaker?.name || plant.caretaker}>
           {!!plant.caretaker && <Fact label="Note personnelle" value={plant.caretaker} />}
           {caretaker && <><Fact label="Contact" value={[caretaker.name, caretaker.phone, caretaker.email].filter(Boolean).join(' · ')} /><ActionButton title="Coordonnées et consignes" secondary onPress={onCaretaker} /></>}
@@ -131,6 +136,7 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
       </View>
     </View>
     <View style={styles.footer}>
+      {!plant.archivedAt && <><Text style={styles.small}>Archiver conserve la fiche, la photo et les soins, en suspendant les rappels.</Text><ActionButton title="Archiver cette plante" secondary disabled={disabled} onPress={onArchive} /></>}
       {confirmDelete ? <View style={styles.deletePanel}><Text style={styles.detailHeading}>Supprimer {plant.name} ?</Text><Text style={styles.body}>Sa fiche et son historique seront supprimés définitivement.</Text><View style={styles.actions}><Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={onDelete} style={[styles.deleteButton, disabled && { opacity: .5 }]}><Text style={styles.deleteButtonText}>Confirmer la suppression</Text></Pressable><ActionButton title="Conserver la plante" secondary disabled={disabled} onPress={() => setConfirmDelete(false)} /></View></View> : <Pressable accessibilityRole="button" disabled={disabled} onPress={() => setConfirmDelete(true)} style={styles.deleteLink}><Text style={styles.deleteText}>Supprimer cette plante</Text></Pressable>}
     </View>
   </View>;

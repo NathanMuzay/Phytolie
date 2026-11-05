@@ -1,0 +1,36 @@
+name: Fonctionnalité
+description: Décrire un besoin et ses critères de validation.
+title: "[Fonctionnalité] "
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Besoin utilisateur et comportement proposé
+      description: Décrivez qui utilise cette fonctionnalité et pour quel objectif.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre, dépendances et limites
+      description: Précisez les écrans et les données concernés, ainsi que les issues liées.
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Taille estimée
+      options:
+        - À évaluer
+        - Mineure
+        - Majeure
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Critères de validation
+      description: Listez les comportements vérifiables et les preuves attendues.
+      placeholder: "- [ ] Un utilisateur peut…\n- [ ] Le scénario… est couvert par un test."
+    validations:
+      required: true

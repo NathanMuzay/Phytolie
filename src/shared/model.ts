@@ -1,3 +1,5 @@
+import { recordWatering, validCareEvent, MAX_CARE_EVENTS, type CareEvent } from '../features/plants/careRecords.ts';
+import { validSubstrate, type SubstrateSelection } from '../features/plants/substrates.ts';
 import { validateHome, validPosition, type HomePlan, type PlantPosition } from '../features/home/home.ts';
 import { validMeasurement, type Measurement } from '../features/measurement/measurement.ts';
 import { wateringPlan, type Irrigation } from '../features/plants/irrigation.ts';
@@ -5,6 +7,7 @@ import type { City } from '../services/weather.ts';
 import { validLightReading, type LightReading } from '../features/light/light.ts';
 import { validBotanicalImage, type BotanicalImage, type PhotoMode, type PhotoFit } from '../features/plants/botanical.ts';
 export type Plant = {
+  archivedAt?: string; careEvents?: CareEvent[]; substrateDetails?: SubstrateSelection;
   id: string; name: string; species: string; room: string; photo?: string;
   position?: PlantPosition;
   lightReading?: LightReading;
@@ -34,7 +37,7 @@ export function daysUntil(date: Date, now = new Date()): number {
   return Math.round((a - b) / DAY);
 }
 export function waterPlant(plant: Plant, now = new Date()): Plant {
-  return { ...plant, irrigation: plant.irrigation ? { ...plant.irrigation, moisture: undefined, checkedAt: undefined } : undefined, lastWatered: now.toISOString(), history: [now.toISOString(), ...plant.history].slice(0, 100) };
+  return recordWatering(plant, { occurredAt: now.toISOString() }, now);
 }
 export function parseGarden(raw: string): Garden {
   const value = JSON.parse(raw);
@@ -49,6 +52,13 @@ export function parseGarden(raw: string): Garden {
       (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email))) throw new Error('Personne de confiance invalide');
   }
   for (const p of value.plants) {
+    if (p?.archivedAt != null && (typeof p.archivedAt !== 'string' || !Number.isFinite(Date.parse(p.archivedAt)))) throw new Error('Date d’archivage invalide');
+    if (p?.substrateDetails != null && (!validSubstrate(p.substrateDetails) || p.irrigation?.substrate !== p.substrateDetails.type)) throw new Error('Substrat incohérent');
+    if (p?.careEvents != null && (!Array.isArray(p.careEvents) || p.careEvents.length > MAX_CARE_EVENTS || !p.careEvents.every(validCareEvent) || new Set(p.careEvents.map((e: CareEvent) => e.id)).size !== p.careEvents.length)) throw new Error('Historique de soins invalide');
+    if (p?.careEvents) {
+      const dates = p.careEvents.filter((e: CareEvent) => e.kind === 'watering' && !e.cancelledAt).map((e: CareEvent) => e.occurredAt).sort((a: string, b: string) => Date.parse(b) - Date.parse(a));
+      if (JSON.stringify(dates.slice(0, 100)) !== JSON.stringify(p.history) || (dates[0] ?? null) !== p.lastWatered) throw new Error('Historique et dernier arrosage incohérents');
+    }
     if (p?.lightReading != null && !validLightReading(p.lightReading)) throw new Error('Relevé de lumière invalide');
     if (p.position != null && !validPosition(p.position, value.home)) throw new Error('Emplacement de plante invalide');
     if (p.photoMode != null && !['personal', 'botanical'].includes(p.photoMode)) throw new Error('Source du visuel invalide');
@@ -72,6 +82,7 @@ export function isReminderTime(value: unknown): value is string {
 }
 export function reminderDates(plant: Plant, now = new Date(), time = DEFAULT_REMINDER_TIME): Date[] {
   if (!isReminderTime(time)) throw new Error('Heure de rappel invalide');
+  if (plant.archivedAt) return [];
   const [hour, minute] = time.split(':').map(Number);
   const first = wateringPlan(plant, now).nextCheck;
   if (first < now) first.setTime(now.getTime());

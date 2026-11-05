@@ -86,3 +86,24 @@ test('Malformed invitations, removed plants and invalid periods cannot grant or 
     assert.equal(accounts.getGarden(owner.token).revision, 2);
   } finally { accounts.close(); }
 });
+
+test('Archiving pauses existing guest access and new invitations; restoration keeps data and valid grants', async () => {
+  const { accounts, delegates, owner, guest, input } = await setup();
+  try {
+    const invitation = delegates.create(owner.token, input);
+    const id = invitation.delegation.id;
+    delegates.accept(guest.token, { invitation: invitation.invitation });
+    const before = accounts.getGarden(owner.token);
+    const archived = { ...before.garden, plants: before.garden.plants.map(p => p.id === 'one' ? { ...p, archivedAt: new Date().toISOString() } : p) };
+    accounts.putGarden(owner.token, { revision: before.revision, garden: archived });
+    assert.deepEqual(delegates.garden(guest.token, id).plants, []);
+    assert.throws(() => delegates.create(owner.token, input), e => e.status === 400);
+    assert.throws(() => delegates.water(guest.token, id, { plantId: 'one' }), e => e.status === 409);
+    assert.equal(accounts.getGarden(owner.token).revision, before.revision + 1);
+    const restore = accounts.getGarden(owner.token);
+    accounts.putGarden(owner.token, { revision: restore.revision, garden: { ...restore.garden, plants: restore.garden.plants.map(p => ({ ...p, archivedAt: undefined })) } });
+    assert.equal(delegates.garden(guest.token, id).plants.length, 1);
+    delegates.water(guest.token, id, { plantId: 'one' });
+    assert.equal(accounts.getGarden(owner.token).garden.plants[0].careEvents[0].kind, 'watering');
+  } finally { accounts.close(); }
+});

@@ -1,0 +1,32 @@
+name: Anomalie
+description: Signaler un problème reproductible dans Phytolie.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description et comportement attendu
+      description: Expliquez le problème et le résultat attendu, sans données personnelles.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Étapes de reproduction
+      placeholder: "1. Ouvrir…\n2. Choisir…\n3. Observer…"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environnement
+      description: Version ou commit, Web ou téléphone, navigateur ou système.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation du correctif
+      description: Quel scénario ou test doit réussir pour considérer le problème résolu ?
+    validations:
+      required: true

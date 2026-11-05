@@ -35,7 +35,8 @@ test('Moist soil suppresses dose for one day, defers checks and does not fake wa
   assert.ok(wateringPlan(observed, new Date(+now + 2 * 86400000)).amount > 0);
   const watered = waterPlant(observed, new Date(+now + 1000));
   assert.equal(watered.irrigation.moisture, undefined);
-  assert.equal(watered.history.length, 1);
+  assert.equal(watered.history.length, 2); // Preserve the legacy lastWatered even when history was empty.
+  assert.equal(watered.history[1], plant.lastWatered);
   assert.ok(daysUntil(reminderDates(watered, now)[0], dueDate(watered)) >= 0);
 });
 test('Dry observations advance checking without recording an irrigation', () => {

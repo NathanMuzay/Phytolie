@@ -1,7 +1,8 @@
+import { botanicalSearchText } from './botanicalNames.ts';
 export type CareDefaults = { interval: number; soil: string; toleranceFraction: number | null };
 
 export function careDefaults(name: string): CareDefaults {
-  const value = name.toLocaleLowerCase('fr-FR');
+  const value = botanicalSearchText(name);
   if (/cactus|succulent|aloe|agave|crassula|echeveria|haworthia|sansevieria|dracaena trifasciata/.test(value)) {
     return { toleranceFraction: 0.3, interval: 14, soil: 'Substrat très drainant pour cactus et succulentes' };
   }
@@ -19,7 +20,7 @@ export function careDefaults(name: string): CareDefaults {
 
 export function estimateWaterAmount(potDiameterCm: number, name = ''): number {
   if (!Number.isFinite(potDiameterCm) || potDiameterCm <= 0) return 0;
-  const succulentFactor = /cactus|succulent|aloe|agave|crassula|echeveria|haworthia|sansevieria/.test(name.toLocaleLowerCase('fr-FR')) ? 0.55 : 1;
+  const succulentFactor = /cactus|succulent|aloe|agave|crassula|echeveria|haworthia|sansevieria/.test(botanicalSearchText(name)) ? 0.55 : 1;
   const estimate = Math.PI * Math.pow(potDiameterCm / 2, 2) * 1.2 * succulentFactor;
   return Math.min(1500, Math.max(25, Math.round(estimate / 25) * 25));
 }

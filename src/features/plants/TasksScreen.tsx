@@ -65,10 +65,11 @@ function CareCard({ plant, disabled, onWatered, onObserve, onOpenPlant }: Pick<P
   </View>;
 }
 
-export function TasksScreen({ plants, disabled, onWatered, onObserve, onOpenPlant, onAddPlant }: Props) {
+export function TasksScreen({ plants: allPlants, disabled, onWatered, onObserve, onOpenPlant, onAddPlant }: Props) {
   const styles = useReadableStyles(baseStyles);
   const { width } = useWindowDimensions();
   const { settings } = useAccessibility();
+  const plants = allPlants.filter(plant => !plant.archivedAt);
   const twoColumns = width >= 1100 && settings.textScale < 1.5;
   const due = plants.filter(plant => daysUntil(dueDate(plant)) <= 0);
   const upcoming = plants.filter(plant => daysUntil(dueDate(plant)) > 0);

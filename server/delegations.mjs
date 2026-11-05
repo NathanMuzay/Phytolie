@@ -47,7 +47,7 @@ export function openDelegations(accounts, HttpError, { migrate = false, requireE
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || email === owner.email) fail(400, 'Indiquez l’adresse e-mail de la personne invitée, différente de la vôtre.');
       if (!Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || ends <= Date.now() || ends - starts > 90 * 86400000) fail(400, 'Choisissez une période future de 90 jours maximum, avec une fin après le début.');
       const garden = accounts.getGarden(token).garden;
-      if (!Array.isArray(ids) || !ids.length || ids.length > 200 || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !garden.plants.some(p => p.id === id))) fail(400, 'Sélectionnez au moins une plante de votre collection.');
+      if (!Array.isArray(ids) || !ids.length || ids.length > 200 || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !garden.plants.some(p => p.id === id && !p.archivedAt))) fail(400, 'Sélectionnez au moins une plante de votre collection.');
       if (typeof input.notes !== 'string' || input.notes.length > 2000) fail(400, 'Consignes limitées à 2 000 caractères.');
       if (db.prepare('SELECT COUNT(*) AS count FROM delegations WHERE owner_id=? AND revoked=0 AND ends>?').get(owner.id, Date.now()).count >= 50) fail(400, 'Révoquez une invitation avant d’en créer une nouvelle (50 maximum).');
       const invitation = randomBytes(32).toString('base64url');
@@ -81,7 +81,7 @@ export function openDelegations(accounts, HttpError, { migrate = false, requireE
       const garden = accounts.readGarden(db.prepare('SELECT data FROM gardens WHERE user_id=?').get(row.owner_id).data, row.owner_id);
       const ids = JSON.parse(row.plant_ids);
       // Exclude the owner's contact, house plan and account settings from the shared collection.
-      return { delegation: view(row), plants: garden.plants.filter(p => ids.includes(p.id)).map(({ position, caretaker, ...plant }) => plant) };
+      return { delegation: view(row), plants: garden.plants.filter(p => ids.includes(p.id) && !p.archivedAt).map(({ position, caretaker, ...plant }) => plant) };
     },
     water(token, id, input) {
       const { row, user } = authorized(token, id);
@@ -91,11 +91,15 @@ export function openDelegations(accounts, HttpError, { migrate = false, requireE
         const stored = db.prepare('SELECT data, revision FROM gardens WHERE user_id=?').get(row.owner_id);
         const garden = accounts.readGarden(stored.data, row.owner_id);
         const plant = garden.plants.find(p => p.id === input.plantId);
+        if (plant?.archivedAt) fail(409, 'Cette plante est archivée. Son propriétaire doit la restaurer avant un soin.');
         if (!plant) fail(404, 'La plante a été retirée de la collection.');
         const now = new Date();
         // Retrying a confirmation on the same calendar day must not duplicate watering history.
         if (!plant.lastWatered || plant.lastWatered.slice(0, 10) !== now.toISOString().slice(0, 10)) {
-          garden.plants = garden.plants.map(p => p.id === plant.id ? waterPlant(p, now) : p);
+          let updated;
+          try { updated = waterPlant(plant, now); }
+          catch (error) { fail(409, error.message); }
+          garden.plants = garden.plants.map(p => p.id === plant.id ? updated : p);
           db.prepare('UPDATE gardens SET data=?, revision=revision+1 WHERE user_id=?').run(accounts.encodeGarden(garden, row.owner_id), row.owner_id);
           db.prepare('INSERT INTO caretaker_actions VALUES (?, ?, ?, ?, ?)').run(randomUUID(), row.id, user.id, plant.id, now.toISOString());
         }

@@ -38,3 +38,9 @@ La page expose ces limites sans annoncer de garantie absente du produit :
 L’expiration de 24 h d’une session ou de sept jours d’un code d’invitation est une durée de validité, distincte de l’effacement matériel de toutes les données. Le paramètre OpenAI `store: false` n’est pas présenté comme une garantie de rétention nulle. La suppression d’une fiche n’est pas présentée comme effaçant automatiquement les copies des prestataires, les journaux ou les sauvegardes.
 
 La notice doit être actualisée si le déploiement, les destinataires, les finalités ou les conservations changent. Elle ne constitue pas à elle seule une vérification complète de conformité de l’exploitation.
+
+## Extension du journal des soins et archivage
+
+La catégorie « Arrosages et historique » couvre désormais la quantité réellement versée facultative, les notes, les dates de correction et d’annulation, les dimensions avant/après rempotage, les instantanés de substrat et leur référence produit facultative, ainsi que la date d’archivage. Les données sont sauvegardées avec le jardin et peuvent être partagées pour les plantes confiées. L’archivage suspend l’accès des invités et les rappels, tout en conservant les données ; une invitation encore valide retrouve son accès après restauration. Les observations de racines et de croissance du formulaire sont temporaires sauf si l’utilisateur les décrit dans la note enregistrée.
+
+Le journal conserve au plus 500 événements par plante ; un nouvel ajout au-delà est refusé. Les annulations restent visibles ; seules les dates actives alimentent les échéances et les 100 dates de compatibilité. La suppression de la fiche retire son journal de la collection active, sans modifier les limites distinctes de conservation des journaux serveur et des sauvegardes décrites ci-dessus.
