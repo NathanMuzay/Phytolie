@@ -41,6 +41,8 @@ async function readJson(request, limit) {
   } finally { clearTimeout(timer); }
 }
 function methodFor(path) {
+  if (path === '/guest/garden') return ['GET'];
+  if (path === '/guest/water') return ['POST'];
   if (path === '/health') return ['GET'];
   if (path === '/garden') return ['GET', 'PUT'];
   if (path === '/delegations') return ['GET', 'POST'];
@@ -92,6 +94,12 @@ const server = createServer({ maxHeaderSize: 8192, headersTimeout: 10000, reques
       return send(response, route === '/auth/register' ? 201 : 200, result);
     }
     const token = request.headers.authorization?.startsWith('Bearer ') ? request.headers.authorization.slice(7) : undefined;
+    if (route === '/guest/garden' || route === '/guest/water') {
+      security.consume('guest-ip', ip, 60, MINUTE);
+      if (route === '/guest/garden') return send(response, 200, delegations.gardenWithLink(token));
+      security.consume('guest-water', token || 'missing', 30, MINUTE);
+      return send(response, 200, delegations.waterWithLink(token, await readJson(request, 4096)));
+    }
     const user = accounts.authenticate(token); userId = user.id;
     security.consume('http-user', user.id, 120, MINUTE);
     if (route === '/auth/logout') { accounts.logout(token); return send(response, 200, { ok: true }); }

@@ -553,3 +553,11 @@ Travaux restant à dimensionner avant ouverture à une large audience :
 - [Caddy — proxy inverse et en-têtes](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)
 - [GitHub — action checkout retenue](https://github.com/actions/checkout/tree/11bd71901bbe5b1630ceea73d27597364c9af683)
 - [GitHub — action setup-node retenue](https://github.com/actions/setup-node/tree/49933ea5288caeca8642d1e84afbd3f7d6820020)
+
+## Liens de personne de confiance
+
+Les routes `/guest/garden` (GET) et `/guest/water` (POST) utilisent un secret de 32 octets aléatoires encodé en base64url, transmis dans `Authorization: Bearer …`. Il est différent d’une session de compte et stocké sous forme SHA-256 uniquement. Le lien Web place le secret dans son fragment ; le code ne figure ni dans l’URL de l’API ni dans les journaux applicatifs.
+
+La possession du lien autorise la consultation des champs d’entretien des seules plantes sélectionnées et la confirmation d’arrosage pendant la période choisie (90 jours maximum). Elle ne permet aucune gestion de compte, de fiche ou d’invitation. Les dates et la révocation sont contrôlées à chaque lecture et écriture côté serveur ; les plantes archivées sont exclues. Les quotas, CORS, exigences TLS de production, en-têtes sans cache et écritures transactionnelles restent appliqués. L’activité identifie un accès par lien, sans prétendre authentifier la personne qui le possède.
+
+Au démarrage, le schéma est migré dans une transaction : les anciens liens non consommés deviennent directs avec leur expiration initiale ; les accès déjà acceptés par compte sont conservés. `caretaker_actions.guest_id` devient nullable pour les arrosages par lien, en préservant les lignes précédentes et leurs clés étrangères.

@@ -7,12 +7,14 @@ import { PreferencesScreen } from '../features/settings/PreferencesScreen';
 import { gardenWithHome } from '../features/home/homeGarden';
 import { HomeScreen, PlacementPicker } from '../features/home/HomeScreen';
 import { estimatePlacement, validPosition, type PlantPosition } from '../features/home/home';
+import { GuestCareScreen } from '../features/caretakers/GuestCareScreen';
+import { guestInvitationFromUrl } from '../features/caretakers/invitation';
 import { CaretakerScreen } from '../features/caretakers/CaretakerScreen';
 import { usePage } from './usePage';
 import { AppHeader, AppBottomNav } from './AppHeader';
 import { CollectionScreen } from '../features/plants/CollectionScreen';
 import { ActionButton as Button } from '../shared/ui/ActionButton';
-import { invitationFromHash, type Page } from './navigation';
+import { type Page } from './navigation';
 import { PlantVisual } from '../features/plants/PlantVisual';
 import { TasksScreen } from '../features/plants/TasksScreen';
 import { botanicalLabel, preferredPhotoMode, type BotanicalImage, type PhotoMode, type PhotoFit } from '../features/plants/botanical';
@@ -26,7 +28,7 @@ import { validSubstrate, type SubstrateSelection } from '../features/plants/subs
 import { recordSubstrateChange, setArchived } from '../features/plants/careRecords';
 import { PlantDetailScreen } from '../features/plants/PlantDetailScreen';
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AppState, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
@@ -66,28 +68,47 @@ export default function App() {
 function AppContent() {
   const colors = useThemePalette();
   const [account, setAccount] = useState<AccountSession | null>(null);
-  const [invitation, setInvitation] = useState(() => Platform.OS === 'web' ? invitationFromHash(window.location.hash) : '');
+  const [invitation, setInvitation] = useState<string | null>(() => Platform.OS === 'web' ? guestInvitationFromUrl(window.location.href) : null);
   const { page, navigate } = usePage();
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const readInvitation = () => { const code = invitationFromHash(window.location.hash); if (code) setInvitation(code); };
-    window.addEventListener('hashchange', readInvitation);
-    return () => window.removeEventListener('hashchange', readInvitation);
+    if (Platform.OS === 'web') {
+      const changed = () => setInvitation(guestInvitationFromUrl(window.location.href));
+      window.addEventListener('hashchange', changed);
+      return () => window.removeEventListener('hashchange', changed);
+    }
+    let active = true;
+    const open = (url: string) => { const code = guestInvitationFromUrl(url); if (active && code !== null) setInvitation(code); };
+    void Linking.getInitialURL().then(url => { if (url) open(url); }).catch(() => {});
+    const subscription = Linking.addEventListener('url', event => open(event.url));
+    return () => { active = false; subscription.remove(); };
   }, []);
+  function openInvitation(code: string) {
+    setInvitation(code);
+    if (Platform.OS === 'web') window.location.hash = `/personne-de-confiance?invitation=${encodeURIComponent(code)}`;
+  }
+  function exitInvitation() {
+    setInvitation(null);
+    if (Platform.OS === 'web') {
+      const url = new URL(window.location.href); url.searchParams.delete('invitation');
+      window.history.replaceState(null, '', url.href);
+    }
+    navigate(account ? 'garden' : 'account');
+  }
   useEffect(() => {
     if (!account) return;
-    const expire = () => { if (Date.parse(account.expiresAt) <= Date.now()) { setAccount(null); navigate('account'); void syncReminders([], false).catch(() => {}); } };
+    const expire = () => { if (Date.parse(account.expiresAt) <= Date.now()) { setAccount(null); if (invitation === null) navigate('account'); void syncReminders([], false).catch(() => {}); } };
     const timer = setTimeout(expire, Math.max(0, Date.parse(account.expiresAt) - Date.now()));
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') expire(); });
     return () => { clearTimeout(timer); subscription.remove(); };
-  }, [account, navigate]);
+  }, [account, navigate, invitation]);
+  if (invitation !== null) return <GuestCareScreen key={invitation} invitation={invitation} onExit={exitInvitation} />;
   if (!account && page === 'privacy') return <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}><ScrollView contentContainerStyle={{ padding: 24, gap: 24, width: '100%', maxWidth: 980, alignSelf: 'center' }}><PrivacyScreen onBack={() => navigate('account')} backLabel="Connexion" /></ScrollView></SafeAreaView>;
   if (!account && page === 'preferences') return <SafeAreaView style={{ flex: 1 }}><ScrollView contentContainerStyle={{ padding: 24, gap: 24 }}><PreferencesScreen /><Button title="Retour à la connexion" onPress={() => navigate('account')} /></ScrollView></SafeAreaView>;
-  if (!account || page === 'account') return <AccountScreen onPrivacy={() => navigate('privacy')} onPreferences={() => navigate('preferences')} onConnected={session => { setAccount(session); navigate(invitation ? 'caretaker' : 'garden'); }} />;
-  return <GardenApp page={page} navigate={navigate} key={account.user.id} account={account} invitation={invitation} onAccepted={() => { setInvitation(''); navigate('caretaker'); }} onDisconnected={() => { setAccount(null); navigate('account'); }} />;
+  if (!account || page === 'account') return <AccountScreen onOpenInvitation={openInvitation} onPrivacy={() => navigate('privacy')} onPreferences={() => navigate('preferences')} onConnected={session => { setAccount(session); navigate('garden'); }} />;
+  return <GardenApp page={page} navigate={navigate} key={account.user.id} account={account} onOpenInvitation={openInvitation} onDisconnected={() => { setAccount(null); navigate('account'); }} />;
 }
 
-function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconnected }: { page: Page; navigate: (page: Page) => void; account: AccountSession; invitation: string; onAccepted: () => void; onDisconnected: () => void }) {
+function GardenApp({ page, navigate, account, onOpenInvitation, onDisconnected }: { page: Page; navigate: (page: Page) => void; account: AccountSession; onOpenInvitation: (code: string) => void; onDisconnected: () => void }) {
   const palette = useThemePalette();
   const styles = useReadableStyles(baseStyles);
   const { width } = useWindowDimensions();
@@ -424,7 +445,7 @@ function GardenApp({ page, navigate, account, invitation, onAccepted, onDisconne
       {tab === 'garden' && <CollectionScreen plants={withWeather(garden.plants)} disabled={disabled} onAdd={openAdd} onOpen={plant => { setSelected(plant.id); }} onTasks={() => navigate('tasks')} />}
       {tab === 'tasks' && <TasksScreen plants={sortedPlants} disabled={disabled} onWatered={plant => void watered(plant)} onObserve={(plant, moisture) => void observeMoisture(plant, moisture)} onOpenPlant={plant => { setSelected(plant.id); }} onAddPlant={garden.plants.length ? () => navigate('garden') : openAdd} />}
       {tab === 'home' && <HomeScreen home={garden.home} plants={garden.plants.filter(p => !p.archivedAt)} latitude={garden.city?.latitude} disabled={disabled} onSave={(home, positions, plants) => save(gardenWithHome({ ...garden, plants: [...plants, ...garden.plants.filter(p => p.archivedAt)] }, home, positions))} />}
-      {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants.filter(p => !p.archivedAt)} initialInvitation={invitation} onAccepted={onAccepted} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
+      {tab === 'caretaker' && <CaretakerScreen session={account} plants={garden.plants.filter(p => !p.archivedAt)} onOpenInvitation={onOpenInvitation} contact={garden.caretaker} disabled={disabled} onSave={caretaker => save({ ...garden, caretaker })} />}
       {tab === 'preferences' && <PreferencesScreen account={{ email: account.user.email, session: account, disabled: busy || scanning || measuring, onDisconnect: () => void switchAccount(), onRevoked: () => { void (async () => { try { await scheduleQueue.current; await syncReminders([], false); } finally { onDisconnected(); } })().catch(() => {}); } }} />}
       {tab === 'privacy' && <PrivacyScreen onBack={() => navigate('settings')} />}
       {tab === 'settings' && <>

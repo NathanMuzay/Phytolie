@@ -1,3 +1,4 @@
+import { invitationCode } from '../caretakers/invitation';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { botanicalPhoto, palette, fonts, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 import { ActionButton } from '../../shared/ui/ActionButton';
@@ -5,7 +6,7 @@ import { useAccessibility } from '../../shared/accessibility/AccessibilityProvid
 import { useRef, useState } from 'react';
 import { Image, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, View, useWindowDimensions } from 'react-native';
 import { authenticate, type AccountSession } from './accountApi';
-export function AccountScreen({ onConnected, onPreferences, onPrivacy }: { onPrivacy: () => void; onConnected: (session: AccountSession) => void; onPreferences: () => void }) {
+export function AccountScreen({ onConnected, onPreferences, onPrivacy, onOpenInvitation }: { onOpenInvitation: (code: string) => void; onPrivacy: () => void; onConnected: (session: AccountSession) => void; onPreferences: () => void }) {
   const styles = useReadableStyles(baseStyles);
   const colors = useThemePalette();
   const { width } = useWindowDimensions();
@@ -15,6 +16,7 @@ export function AccountScreen({ onConnected, onPreferences, onPrivacy }: { onPri
   const confirmationInput = useRef<TextInput>(null);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [confirmation, setConfirmation] = useState('');
+  const [invitationInput, setInvitationInput] = useState(''), [showInvitation, setShowInvitation] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   function changeMode(next: 'login' | 'register') { setMode(next); setError(''); setPassword(''); setConfirmation(''); setShowPassword(false); }
@@ -34,6 +36,8 @@ export function AccountScreen({ onConnected, onPreferences, onPrivacy }: { onPri
       {wide ? <><View style={styles.welcomeCopy}><Text style={styles.eyebrow}>LE CARNET DU VIVANT</Text><Text style={styles.welcomeTitle}>Un peu de nature.{'\n'}Beaucoup d’attention.</Text><Text style={styles.welcomeText}>Vos plantes, leurs besoins et les bons gestes, réunis au même endroit.</Text></View><Image source={botanicalPhoto} resizeMode="contain" accessibilityLabel="Composition botanique de monstera en pot" style={styles.photo} /><View style={styles.benefits}><Text style={styles.benefit}>01   Identifiez vos plantes</Text><Text style={styles.benefit}>02   Retrouvez les soins du jour</Text><Text style={styles.benefit}>03   Voyez votre collection grandir</Text></View></> : <Text style={styles.small}>Votre jardin au quotidien.</Text>}
     </View>
     <View style={[styles.form, wide && styles.formWide]}>
+      <ActionButton title="J’ai reçu un accès à un jardin" secondary disabled={busy} onPress={() => setShowInvitation(value => !value)} />
+      {showInvitation && <View style={styles.field}><Text style={styles.text}>Collez le lien ou le code reçu pour ouvrir le jardin sans connexion.</Text><TextInput accessibilityLabel="Lien ou code du jardin partagé" editable={!busy} value={invitationInput} onChangeText={setInvitationInput} autoCapitalize="none" autoCorrect={false} style={styles.input} /><ActionButton title="Ouvrir le jardin partagé" secondary disabled={busy} onPress={() => { const code = invitationCode(invitationInput); if (!code) { setError('Lien ou code invalide. Copiez le lien complet reçu.'); return; } onOpenInvitation(code); }} /></View>}
       <View style={styles.tabs}>{([['login', 'Connexion'], ['register', 'Inscription']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value, disabled: busy }} disabled={busy} onPress={() => changeMode(value)} style={[styles.tab, mode === value && styles.tabActive]}><Text style={[styles.tabText, mode === value && styles.tabActiveText]}>{label}</Text></Pressable>)}</View>
       <View style={styles.intro}><Text accessibilityRole="header" style={styles.title}>{mode === 'login' ? 'Heureux de vous revoir.' : 'Faisons pousser votre jardin.'}</Text><Text style={styles.text}>{mode === 'login' ? 'Connectez-vous pour retrouver vos plantes et leurs prochains soins.' : 'Créez votre compte pour conserver vos fiches et retrouver votre collection sur vos appareils.'}</Text></View>
       <Pressable accessibilityRole="button" disabled={busy} onPress={onPrivacy} style={styles.accessibility}><Text style={styles.accessibilityText}>Confidentialité et données personnelles (RGPD)</Text></Pressable>

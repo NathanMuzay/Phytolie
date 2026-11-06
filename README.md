@@ -121,7 +121,7 @@ Les mots de passe sont hachés avec scrypt et un sel aléatoire. Les jetons de s
 
 Le mode compte exige une connexion au serveur pour charger ou modifier sa collection ; il n’existe pas encore de file de synchronisation hors ligne. Les modifications locales ne sont jamais importées automatiquement. Les réglages d’entretien et de rappels appartiennent au compte, mais l’autorisation de notification reste propre à chaque téléphone.
 
-Cette configuration HTTP est destinée au développement sur un réseau local de confiance. Pour exposer les comptes sur Internet, déployez le serveur derrière HTTPS et configurez `EXPO_PUBLIC_API_URL` avec cette adresse ; les comptes ne sont pas hébergés automatiquement par ce projet. Les API de collection, de délégation, d’identification et de mesure exigent une session valide. Prévoyez également des quotas d’identification adaptés avant une exposition publique.
+Cette configuration HTTP est destinée au développement sur un réseau local de confiance. Pour exposer les comptes sur Internet, déployez le serveur derrière HTTPS et configurez `EXPO_PUBLIC_API_URL` avec cette adresse ; les comptes ne sont pas hébergés automatiquement par ce projet. Les API de gestion de collection, de création/révocation des accès, d’identification et de mesure exigent une session valide. Les routes invitées `/guest/garden` et `/guest/water` utilisent uniquement le code secret du lien partagé et restent limitées aux plantes confiées. Prévoyez également des quotas d’identification adaptés avant une exposition publique.
 
 ### En cas de difficulté
 
@@ -166,7 +166,7 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 - Écran « À faire », confirmation « J’ai arrosé » et historique.
 - Compte utilisateur : inscription, connexion, déconnexion et collection privée sauvegardée sur le serveur.
 - Connexion obligatoire, import des anciens carnets locaux et suppression des plantes avec confirmation.
-- Personne de confiance : invitations temporaires, plantes sélectionnées, consignes, confirmations d’arrosage et révocation.
+- Personne de confiance : liens temporaires ouvrant directement un espace invité sans compte, plantes sélectionnées, consignes, confirmations d’arrosage et révocation.
 - Rappels locaux Android à l’heure choisie dans « Mon espace » (09:00 par défaut), regroupés par jour et répétés tant que l’arrosage n’est pas confirmé.
 - Changer l’heure remplace les anciennes notifications ; confirmer l’arrosage relance le calendrier à la prochaine échéance. Toucher une notification ouvre « À faire ».
 - Date de contrôle du rempotage et note de personne référente en cas d’absence.
