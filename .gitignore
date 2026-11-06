@@ -49,3 +49,5 @@ yarn-error.*
 *.sqlite-*
 *.foliabak
 /backups/
+
+test/*.mjs

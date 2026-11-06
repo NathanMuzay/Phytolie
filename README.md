@@ -25,7 +25,7 @@ Le lien est public et temporaire : partagez-le uniquement avec les personnes qui
 ### Prérequis
 
 - **Node.js 22.13 minimum** (Node 22 recommandé) et npm.
-- Pour tester sur téléphone : **Expo Go** sur Android, compatible avec le SDK Expo 57.
+- Pour tester sur téléphone : **Expo Go** sur Android, compatible avec le SDK Expo 58.
 - Un ordinateur et un téléphone connectés au même réseau Wi-Fi.
 - Une clé API plant.id. L’inscription Kindwise fournit actuellement 100 crédits d’essai.
 
@@ -135,7 +135,7 @@ Cette configuration HTTP est destinée au développement sur un réseau local de
 - Photo refusée : le serveur convertit les images JPEG, PNG, WebP et AVIF en JPEG avant identification. Limites : 8 Mo et 40 mégapixels en entrée ; image redimensionnée à 1 400 pixels maximum par côté. Une image corrompue ou non décodable affiche une erreur explicite. Redémarrez le serveur après une mise à jour.
 - Cache Metro : `npx expo start --clear`.
 - Écran rouge `expo-notifications: Android Push notifications ... removed from Expo Go` : mettez à jour le code, arrêtez Expo puis relancez `npx expo start --clear` et rechargez l’application sur le téléphone. Folia utilise uniquement des rappels locaux, disponibles dans Expo Go, et charge leurs API sans initialiser les notifications push. Les notifications push distantes nécessiteraient une compilation de développement ; elles ne sont pas utilisées ici.
-- Version incompatible dans Expo Go : installez une version Android compatible avec le SDK 57 depuis [expo.dev/go](https://expo.dev/go).
+- Version incompatible dans Expo Go : utilisez Expo Go compatible avec le SDK 58. Après une mise à jour du projet, arrêtez Expo, relancez `npm run demo` et scannez le nouveau QR code. Les versions Android sont disponibles sur [expo.dev/go](https://expo.dev/go).
 - Notifications absentes : autorisez-les dans Android et dans **Mon espace**. Testez sur un appareil Android ; l’économie de batterie peut retarder leur livraison.
 
 ## Documentation

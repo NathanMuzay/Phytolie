@@ -20,7 +20,7 @@ export function useReadableStyles<T extends Record<string, ViewStyle | TextStyle
   const desktop = Platform.OS === 'web' && width >= 860;
   const { settings } = useAccessibility();
   return useMemo(() => Object.fromEntries(Object.entries(base).map(([key, original]) => {
-    const style = { ...original } as TextStyle;
+    let style = { ...original } as TextStyle;
     if (settings.highContrast) {
       for (const property of Object.keys(style)) {
         const value = (style as Record<string, unknown>)[property];
@@ -28,11 +28,11 @@ export function useReadableStyles<T extends Record<string, ViewStyle | TextStyle
         if (colorKey) (style as Record<string, unknown>)[property] = contrastPalette[colorKey];
       }
     }
-    if (style.fontSize == null && (style.color != null || style.fontWeight != null || style.fontFamily != null)) style.fontSize = 14;
+    if (style.fontSize == null && (style.color != null || style.fontWeight != null || style.fontFamily != null)) style = { ...style, fontSize: 14 };
     if (style.fontSize != null) {
       Object.assign(style, readableTextMetrics(style.fontSize, style.lineHeight, width, desktop, settings));
     }
-    if (settings.simpleFont && style.fontFamily) style.fontFamily = Platform.select({ web: 'Arial, sans-serif', ios: 'System', default: 'sans-serif' });
+    if (settings.simpleFont && style.fontFamily) style = { ...style, fontFamily: Platform.select({ web: 'Arial, sans-serif', ios: 'System', default: 'sans-serif' }) };
     return [key, style];
   })) as T, [base, desktop, width, settings]);
 }

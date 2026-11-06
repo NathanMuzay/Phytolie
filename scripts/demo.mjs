@@ -42,7 +42,8 @@ try {
   if (!stopping) {
     console.log('Application et API dans le même tunnel. Scannez le nouveau QR code avec Expo Go.');
     console.log('Vous pouvez utiliser la 4G/5G. Gardez ce terminal et cet ordinateur allumés. Ctrl+C arrête la démo.');
-    start([require.resolve('expo/bin/cli'), 'start', '--go', '--tunnel', '--clear', ...process.argv.slice(2)], {
+    // SDK 58 defaults to an Expo-account tunnel; keep the existing ngrok demo.
+    start([require.resolve('expo/bin/cli'), 'start', '--go', '--tunnel', 'ngrok', '--clear', ...process.argv.slice(2)], {
       ...process.env, FOLIA_DEMO_API_PORT: port, EXPO_PUBLIC_API_VIA_EXPO: '1',
     }, 'inherit');
   }

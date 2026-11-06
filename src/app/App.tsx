@@ -28,7 +28,7 @@ import { validSubstrate, type SubstrateSelection } from '../features/plants/subs
 import { recordSubstrateChange, setArchived } from '../features/plants/careRecords';
 import { PlantDetailScreen } from '../features/plants/PlantDetailScreen';
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AppState, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
@@ -152,7 +152,7 @@ function GardenApp({ page, navigate, account, onOpenInvitation, onDisconnected }
   const [form, setForm] = useState<Form>(initialForm);
   const [error, setError] = useState('');
   const [formStep, setFormStep] = useState(0);
-  const formScroll = useRef<ScrollView>(null);
+  const formScroll = useRef<ScrollViewInstance>(null);
   useEffect(() => { formScroll.current?.scrollTo({ y: 0, animated: false }); }, [formStep]);
   const [notice, setNotice] = useState('');
   const selected = page.startsWith('plant/') ? page.slice(6) : null;
@@ -435,7 +435,7 @@ function GardenApp({ page, navigate, account, onOpenInvitation, onDisconnected }
     lastWatered: editingId ? garden.plants.find(p => p.id === editingId)?.lastWatered ?? null : lastWateredInput && /^\d{4}-\d{2}-\d{2}$/.test(lastWateredInput) ? `${lastWateredInput}T00:00:00` : null,
     createdAt: garden.plants.find(p => p.id === editingId)?.createdAt ?? new Date().toISOString() });
   const noticeMessage = !!notice && <View style={[styles.notice, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}><Text accessibilityLiveRegion="polite" style={[styles.body, { flex: 1 }]}>{notice}</Text><Pressable onPress={() => setNotice('')} accessibilityRole="button" accessibilityLabel="Fermer le message" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Text style={styles.body}>×</Text></Pressable></View>;
-  return <SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content" backgroundColor={palette.paper} /><View style={styles.shell}>
+  return <SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content" /><View style={styles.shell}>
     <AppHeader page={page} navigate={navigate} dueCount={due.length} wide={wide && appearance.textScale < 1.5} />
     <ScrollView key={page} contentContainerStyle={[styles.content, { maxWidth: contentLimit }, !wide && styles.mobileContent]} style={Platform.OS === 'web' && (modal || current) ? { display: 'none' } : undefined}
       refreshControl={Platform.OS !== 'web' && tab === 'garden' ? <RefreshControl refreshing={refreshing} enabled={!busy && !scanning && !measuring} onRefresh={() => void loadGarden(true)} tintColor={palette.forest} colors={[palette.forest]} /> : undefined}>

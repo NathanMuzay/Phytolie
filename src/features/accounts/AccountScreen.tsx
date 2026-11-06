@@ -4,7 +4,7 @@ import { botanicalPhoto, palette, fonts, useReadableStyles, useThemePalette } fr
 import { ActionButton } from '../../shared/ui/ActionButton';
 import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
 import { useRef, useState } from 'react';
-import { Image, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, View, useWindowDimensions } from 'react-native';
+import { Image, ScrollView, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { authenticate, type AccountSession } from './accountApi';
 export function AccountScreen({ onConnected, onPreferences, onPrivacy, onOpenInvitation }: { onOpenInvitation: (code: string) => void; onPrivacy: () => void; onConnected: (session: AccountSession) => void; onPreferences: () => void }) {
   const styles = useReadableStyles(baseStyles);
@@ -12,8 +12,8 @@ export function AccountScreen({ onConnected, onPreferences, onPrivacy, onOpenInv
   const { width } = useWindowDimensions();
   const { settings } = useAccessibility();
   const wide = Platform.OS === 'web' && width >= 1000 && settings.textScale < 1.5;
-  const passwordInput = useRef<TextInput>(null);
-  const confirmationInput = useRef<TextInput>(null);
+  const passwordInput = useRef<TextInputInstance>(null);
+  const confirmationInput = useRef<TextInputInstance>(null);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [confirmation, setConfirmation] = useState('');
   const [invitationInput, setInvitationInput] = useState(''), [showInvitation, setShowInvitation] = useState(false);
