@@ -1,2 +1,3 @@
 chercher l'espece d'une plante 
 obligation d'avoir une espece mais pas un nom
+features web avec visu tel sinon format classique
