@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
-import { daysUntil, type Caretaker, type Plant } from '../../shared/model';
+import { plantDisplayName, daysUntil, type Caretaker, type Plant } from '../../shared/model';
 import { ActionButton } from '../../shared/ui/ActionButton';
 import { fonts, palette, useReadableStyles } from '../../shared/ui/theme';
 import { ExposureDetails } from '../home/HomeScreen';
@@ -64,8 +64,8 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
   const photoLabel = preferredPhotoMode(plant) === 'personal' ? 'Votre photo personnelle' : botanicalLabel(plant).replace(`${plant.species} · `, '');
   const identity = <View style={styles.identity}>
     <View style={styles.roomChip}><Text style={styles.roomText}>{plant.room}</Text></View>
-    <Text accessibilityRole="header" style={styles.title}>{plant.name}</Text>
-    {plant.species.trim().toLocaleLowerCase('fr') !== plant.name.trim().toLocaleLowerCase('fr') && <Text style={styles.species}>{plant.species}</Text>}
+    <Text accessibilityRole="header" style={styles.title}>{plantDisplayName(plant)}</Text>
+    {plant.species.trim().toLocaleLowerCase('fr') !== plantDisplayName(plant).toLocaleLowerCase('fr') && <Text style={styles.species}>{plant.species}</Text>}
   </View>;
   return <View style={styles.screen}>
     <View style={styles.toolbar}>
@@ -137,7 +137,7 @@ export function PlantDetailScreen({ plant, home, caretaker, disabled, onBack, on
     </View>
     <View style={styles.footer}>
       {!plant.archivedAt && <><Text style={styles.small}>Archiver conserve la fiche, la photo et les soins, en suspendant les rappels.</Text><ActionButton title="Archiver cette plante" secondary disabled={disabled} onPress={onArchive} /></>}
-      {confirmDelete ? <View style={styles.deletePanel}><Text style={styles.detailHeading}>Supprimer {plant.name} ?</Text><Text style={styles.body}>Sa fiche et son historique seront supprimés définitivement.</Text><View style={styles.actions}><Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={onDelete} style={[styles.deleteButton, disabled && { opacity: .5 }]}><Text style={styles.deleteButtonText}>Confirmer la suppression</Text></Pressable><ActionButton title="Conserver la plante" secondary disabled={disabled} onPress={() => setConfirmDelete(false)} /></View></View> : <Pressable accessibilityRole="button" disabled={disabled} onPress={() => setConfirmDelete(true)} style={styles.deleteLink}><Text style={styles.deleteText}>Supprimer cette plante</Text></Pressable>}
+      {confirmDelete ? <View style={styles.deletePanel}><Text style={styles.detailHeading}>Supprimer {plantDisplayName(plant)} ?</Text><Text style={styles.body}>Sa fiche et son historique seront supprimés définitivement.</Text><View style={styles.actions}><Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={onDelete} style={[styles.deleteButton, disabled && { opacity: .5 }]}><Text style={styles.deleteButtonText}>Confirmer la suppression</Text></Pressable><ActionButton title="Conserver la plante" secondary disabled={disabled} onPress={() => setConfirmDelete(false)} /></View></View> : <Pressable accessibilityRole="button" disabled={disabled} onPress={() => setConfirmDelete(true)} style={styles.deleteLink}><Text style={styles.deleteText}>Supprimer cette plante</Text></Pressable>}
     </View>
   </View>;
 }

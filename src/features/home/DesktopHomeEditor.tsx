@@ -6,7 +6,7 @@ import { rectangleFromDrag, type PlanPoint } from './homeDrawing';
 import { checkedSnapshot, editOpening, editWall, editWindow, editorId, nearestWall, pointOnWall, removeArea, replaceArea, roomWall, wallLength, type EditorSnapshot } from './homeEditor';
 import { structureElements } from './PlanArtwork';
 import { palette, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
-import type { Plant } from '../../shared/model';
+import { plantDisplayName, type Plant } from '../../shared/model';
 const svg = React.createElement;
 type Tool = 'select' | 'room' | 'garden' | 'wall' | 'curve' | 'door' | 'window' | 'pan';
 type Drag = { origin: PlanPoint; snapshot: EditorSnapshot; key: string; handle?: string; view: { x: number; y: number; width: number; height: number } };
@@ -265,7 +265,7 @@ export function DesktopHomeEditor({ initial, plants, onApply, onClose }: { initi
 
   for (const p of plants) {
     const position = current.positions[p.id]; if (!position) continue;
-    nodes.push(svg('g', { key: `plant-${p.id}`, pointerEvents: 'none' }, svg('circle', { cx: position.x, cy: position.y, r: .13, fill: colors.terracotta }), svg('text', { x: position.x+.18, y: position.y+.08, fontSize: .18, fill: colors.ink }, p.name)));
+    nodes.push(svg('g', { key: `plant-${p.id}`, pointerEvents: 'none' }, svg('circle', { cx: position.x, cy: position.y, r: .13, fill: colors.terracotta }), svg('text', { x: position.x+.18, y: position.y+.08, fontSize: .18, fill: colors.ink }, plantDisplayName(p))));
   }
   function handle(point: PlanPoint, key: string, type: string) { return svg('rect', { key: `handle-${type}`, 'data-key': key, 'data-handle': type, x: point.x-handleSize/2, y: point.y-handleSize/2, width: handleSize, height: handleSize, fill: colors.surface, stroke: colors.terracotta, strokeWidth: .035, style: { cursor: type === 'resize' ? 'nwse-resize' : 'move' } }); }
   if (tool === 'select' && area) nodes.push(handle({ x: area.x+area.width, y: area.y+area.height }, selected, 'resize'));

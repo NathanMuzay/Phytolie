@@ -1,3 +1,4 @@
+import { searchBotanicalSpecies } from '../src/features/plants/botanicalNames.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterCollection } from '../src/features/plants/collection.ts';
@@ -20,4 +21,10 @@ test('Room and due filters combine without changing collection order or contents
   assert.deepEqual(filterCollection(plants, '  ', null, false, now), plants);
   assert.deepEqual(filterCollection(plants, '', null, true, now).map(p => p.id), ['1', '3']);
   assert.deepEqual(plants, before);
+});
+
+test('Species suggestions match partial common and scientific names without accents', () => {
+  assert.equal(searchBotanicalSpecies('langue de belle mere')[0]?.scientific, 'Dracaena trifasciata');
+  assert.equal(searchBotanicalSpecies('monstera del')[0]?.scientific, 'Monstera deliciosa');
+  assert.deepEqual(searchBotanicalSpecies('espèce hors catalogue'), []);
 });

@@ -7,14 +7,30 @@ les procédures de sauvegarde sont détaillés dans [SECURITY.md](SECURITY.md).
 
 ## Lancer localement
 
+### Sur le PC avec le navigateur
+
+Avec Node.js 22.13 ou plus récent et npm, lancez ces commandes depuis le dossier du projet :
+
+```powershell
+npm ci
+npm run dev
+```
+
+`npm ci` installe les dépendances. `npm run dev` démarre le serveur de comptes et Expo dans le même terminal. Ouvrez [Phytolie](http://127.0.0.1:8081), puis connectez-vous ou créez un compte local. Arrêtez les deux serveurs avec `Ctrl+C`.
+
+Le fichier `.env` est facultatif pour le carnet. Pour activer la reconnaissance par photo, copiez `.env.example` vers `.env`, renseignez `PLANT_ID_API_KEY` et relancez. Les ports locaux sont 8081 pour Expo et 8787 pour l’API. Vous pouvez les changer via `FOLIA_WEB_PORT` et `API_PORT` dans `.env`.
+
 ### Démo à distance : téléphone en 4G/5G ou sur un autre Wi-Fi
 
-Après installation des dépendances (`npm ci`), lancez une seule commande :
+Depuis le dossier du projet, après installation des dépendances (`npm.cmd ci` sous Windows), lancez dans PowerShell :
 
-```bash
-nvm use
-npm run demo
+```powershell
+npm.cmd run demo
 ```
+
+Sous macOS ou Linux, utilisez `npm run demo`.
+
+Depuis WSL, si le projet est dans `/mnt/c` et que ses dépendances ont été installées sous Windows, lancez `cmd.exe /d /c npm.cmd run demo` depuis le dossier du projet. Cette commande utilise Node et les dépendances Windows. Elle contourne aussi l’erreur `ERR_NO_TYPESCRIPT` de certaines versions de Node fournies par Linux.
 
 Scannez le **nouveau QR code** dans Expo Go. L’application **et son API** passent par le même tunnel HTTPS Expo/ngrok : aucune IP locale à modifier et aucun second terminal API à lancer. Le téléphone et l’ordinateur ont chacun besoin d’Internet ; l’ordinateur et ce terminal doivent rester ouverts pendant la démo. `Ctrl+C` ferme le tunnel et le serveur de démonstration.
 
@@ -32,13 +48,15 @@ Le lien est public et temporaire : partagez-le uniquement avec les personnes qui
 Depuis le dossier du projet :
 
 ```bash
-# Si vous utilisez nvm
+# Sur macOS ou Linux, si vous utilisez nvm
 nvm install
 nvm use
 
 # Installer les versions verrouillées dans package-lock.json
 npm ci
 ```
+
+Sous Windows, si Node est déjà installé, lancez directement `npm ci`. Avec NVM for Windows, passez une version explicite à `nvm install` et à `nvm use`, par exemple `22.16.0`.
 
 Créez ensuite un compte sur [Kindwise](https://admin.kindwise.com/), récupérez une clé pour **plant.id**, puis copiez le fichier de configuration :
 

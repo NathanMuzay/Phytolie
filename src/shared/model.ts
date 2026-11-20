@@ -39,6 +39,15 @@ export function daysUntil(date: Date, now = new Date()): number {
 export function waterPlant(plant: Plant, now = new Date()): Plant {
   return recordWatering(plant, { occurredAt: now.toISOString() }, now);
 }
+export function hasPlantSpecies(species: string): boolean {
+  const value = species.trim().toLocaleLowerCase('fr');
+  return value !== '' && value !== 'espèce à préciser';
+}
+
+export function plantDisplayName(plant: Pick<Plant, 'name' | 'species'>): string {
+  return plant.name.trim() || (hasPlantSpecies(plant.species) ? plant.species.trim() : 'Espèce à préciser');
+}
+
 export function parseGarden(raw: string): Garden {
   const value = JSON.parse(raw);
   if (!value || !Array.isArray(value.plants) || typeof value.reminders !== 'boolean') throw new Error('Sauvegarde invalide');
@@ -95,5 +104,5 @@ export function reminderDates(plant: Plant, now = new Date(), time = DEFAULT_REM
 }
 
 export function sortPlantsByUrgency(plants: Plant[]): Plant[] {
-  return [...plants].sort((a, b) => +dueDate(a) - +dueDate(b) || a.name.localeCompare(b.name, 'fr'));
+  return [...plants].sort((a, b) => +dueDate(a) - +dueDate(b) || plantDisplayName(a).localeCompare(plantDisplayName(b), 'fr'));
 }

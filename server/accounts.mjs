@@ -3,7 +3,7 @@ import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'no
 import { promisify } from 'node:util';
 import { mkdirSync, chmodSync, existsSync, lstatSync, openSync, closeSync, constants } from 'node:fs';
 import { dirname } from 'node:path';
-import { parseGarden } from '../src/shared/model.ts';
+import { hasPlantSpecies, parseGarden } from '../src/shared/model.ts';
 import { HttpError } from './errors.mjs';
 import { dataCodec } from './encryption.mjs';
 export { HttpError } from './errors.mjs';
@@ -122,6 +122,14 @@ export function openAccounts(path, { codec = dataCodec(), migrate = false, requi
       if (garden.plants.length > 200 || new Set(garden.plants.map(p => p.id)).size !== garden.plants.length) throw new HttpError(400, 'Collection limitée à 200 plantes avec des identifiants uniques.');
       for (const plant of garden.plants) {
         if (plant.photo && (typeof plant.photo !== 'string' || !/^data:image\/(jpeg|png|webp|gif|heic|heif);base64,[A-Za-z0-9+/=]+$/.test(plant.photo))) throw new HttpError(400, 'Photo invalide. Importez une image depuis cet appareil.');
+      }
+      if (garden.plants.some(plant => !hasPlantSpecies(plant.species))) {
+        const row = db.prepare('SELECT revision, data FROM gardens WHERE user_id=?').get(user.id);
+        if (row.revision !== input.revision) throw new HttpError(409, 'La collection a changé sur un autre appareil. Rechargez-la avant de réessayer.');
+        const previousSpecies = new Map(readGarden(row.data, user.id).plants.map(plant => [plant.id, plant.species]));
+        if (garden.plants.some(plant => !hasPlantSpecies(plant.species) && previousSpecies.get(plant.id) !== plant.species)) {
+          throw new HttpError(400, 'Renseignez l’espèce de chaque nouvelle plante.');
+        }
       }
       const data = JSON.stringify(garden);
       if (Buffer.byteLength(data) > 24 * 1024 * 1024) throw new HttpError(413, 'Collection trop volumineuse (24 Mo maximum, photos incluses).');

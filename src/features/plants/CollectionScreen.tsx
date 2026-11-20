@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
-import { daysUntil, dueDate, sortPlantsByUrgency, type Plant } from '../../shared/model';
+import { plantDisplayName, daysUntil, dueDate, sortPlantsByUrgency, type Plant } from '../../shared/model';
 import { ActionButton } from '../../shared/ui/ActionButton';
 import { botanicalPhoto, fonts, palette, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 import { botanicalLabel, preferredPhotoMode } from './botanical';
@@ -26,7 +26,7 @@ export function CollectionScreen({ plants, disabled, onAdd, onOpen, onTasks }: {
   const rooms = [...new Set(scope.map(plant => plant.room))].sort((a, b) => a.localeCompare(b, 'fr'));
   const activeRoom = room && rooms.includes(room) ? room : null;
   const due = plants.filter(plant => !plant.archivedAt && daysUntil(dueDate(plant)) <= 0).length;
-  const ordered = sort === 'urgency' ? sortPlantsByUrgency(plants) : [...plants].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const ordered = sort === 'urgency' ? sortPlantsByUrgency(plants) : [...plants].sort((a, b) => plantDisplayName(a).localeCompare(plantDisplayName(b), 'fr'));
   const visible = filterCollection(ordered, query, activeRoom, archived ? false : onlyDue, new Date(), archived);
   const columns = Math.min(settings.textScale >= 1.75 ? 1 : settings.textScale >= 1.3 ? 2 : 3, Math.max(1, Math.floor((gridWidth + 20) / 290)));
   function reset() { setQuery(''); setRoom(null); setOnlyDue(false); }
@@ -59,9 +59,9 @@ export function CollectionScreen({ plants, disabled, onAdd, onOpen, onTasks }: {
     {!!plants.length && !visible.length && <View style={styles.noResults}><Text accessibilityRole="header" style={styles.sectionTitle}>{scope.length ? 'Aucune plante trouvée' : archived ? 'Aucune plante archivée' : 'Aucune plante active'}</Text><Text style={styles.body}>{scope.length ? 'Essayez un autre nom ou élargissez vos filtres.' : archived ? 'Les plantes que vous archiverez resteront accessibles ici.' : 'Ajoutez une plante ou restaurez une fiche depuis les archives.'}</Text><ActionButton title="Réinitialiser la recherche et les filtres" secondary onPress={reset} /></View>}
     <View style={styles.grid} onLayout={event => setGridWidth(event.nativeEvent.layout.width)}>{visible.map(plant => {
       const days = daysUntil(dueDate(plant));
-      return <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plant.name}, ${plant.room}, ${plant.archivedAt ? 'archivée' : days <= 0 ? 'à vérifier' : `vérification dans ${days} jours`}`} onPress={() => onOpen(plant)} style={({ pressed }) => [styles.card, { width: columns === 1 ? '100%' : (gridWidth - 20 * (columns - 1)) / columns }, pressed && { opacity: .7 }]}>
+      return <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plantDisplayName(plant)}, ${plant.room}, ${plant.archivedAt ? 'archivée' : days <= 0 ? 'à vérifier' : `vérification dans ${days} jours`}`} onPress={() => onOpen(plant)} style={({ pressed }) => [styles.card, { width: columns === 1 ? '100%' : (gridWidth - 20 * (columns - 1)) / columns }, pressed && { opacity: .7 }]}>
         <PlantVisual plant={plant} style={styles.cardPhoto} />
-        <View style={styles.cardCopy}><View style={styles.cardHeading}><Text style={styles.room}>{plant.room}</Text><Text accessible={false} style={styles.arrow}>↗</Text></View><Text style={styles.plantName}>{plant.name}</Text><Text style={styles.small}>{plant.species}</Text><View style={[styles.status, !plant.archivedAt && days <= 0 && styles.statusDue]}><Text style={[styles.statusText, !plant.archivedAt && days <= 0 && styles.statusDueText]}>{plant.archivedAt ? 'Archivée · ouvrir pour restaurer' : days < 0 ? `À vérifier · ${Math.abs(days)} j de retard` : days === 0 ? 'À vérifier aujourd’hui' : days === 1 ? 'Prochaine vérification demain' : `À vérifier dans ${days} jours`}</Text></View><Text style={styles.caption}>{preferredPhotoMode(plant) === 'personal' ? 'Votre photo personnelle' : botanicalLabel(plant)}</Text></View>
+        <View style={styles.cardCopy}><View style={styles.cardHeading}><Text style={styles.room}>{plant.room}</Text><Text accessible={false} style={styles.arrow}>↗</Text></View><Text style={styles.plantName}>{plantDisplayName(plant)}</Text>{plant.species.trim() !== plantDisplayName(plant) && <Text style={styles.small}>{plant.species}</Text>}<View style={[styles.status, !plant.archivedAt && days <= 0 && styles.statusDue]}><Text style={[styles.statusText, !plant.archivedAt && days <= 0 && styles.statusDueText]}>{plant.archivedAt ? 'Archivée · ouvrir pour restaurer' : days < 0 ? `À vérifier · ${Math.abs(days)} j de retard` : days === 0 ? 'À vérifier aujourd’hui' : days === 1 ? 'Prochaine vérification demain' : `À vérifier dans ${days} jours`}</Text></View><Text style={styles.caption}>{preferredPhotoMode(plant) === 'personal' ? 'Votre photo personnelle' : botanicalLabel(plant)}</Text></View>
       </Pressable>;
     })}</View>
   </View>;

@@ -66,3 +66,20 @@ test('Local import is repeatable and preserves account plants, settings and loca
   assert.deepEqual(mergeLocalPlants(merged, local), merged);
   assert.equal(local.plants[0].name, 'Aloe');
 });
+
+test('New plants require a species and can leave the nickname blank', async () => {
+  const store = openAccounts(':memory:');
+  try {
+    const { token } = await store.register(credentials);
+    for (const species of ['  ', 'Espèce à préciser']) {
+      assert.throws(() => store.putGarden(token, {
+        garden: { ...garden, plants: [{ ...plant, species }] }, revision: 0,
+      }), /Renseignez l’espèce/);
+    }
+    const unnamedPlant = { ...plant, name: '' };
+    store.putGarden(token, { garden: { ...garden, plants: [unnamedPlant] }, revision: 0 });
+    assert.deepEqual(store.getGarden(token).garden.plants, [unnamedPlant]);
+  } finally {
+    store.close();
+  }
+});

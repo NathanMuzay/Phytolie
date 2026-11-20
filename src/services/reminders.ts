@@ -1,4 +1,4 @@
-import { addDays, reminderDates, DEFAULT_REMINDER_TIME, isReminderTime, type Plant } from '../shared/model.ts';
+import { plantDisplayName, addDays, reminderDates, DEFAULT_REMINDER_TIME, isReminderTime, type Plant } from '../shared/model.ts';
 export type Reminder = { identifier: string; date: Date; names: string[]; plantIds: string[] };
 export type ScheduledReminder = { identifier: string; content: { data?: Record<string, unknown> } };
 export type ReminderGateway = {
@@ -16,7 +16,7 @@ export function buildReminders(plants: Plant[], now = new Date(), time = DEFAULT
     for (const date of reminderDates(plant, now, time)) {
       if (date > horizon) continue;
       const reminder = groups.get(+date) ?? { identifier: `folia-care-${+date}`, date, names: [], plantIds: [] };
-      reminder.names.push(plant.name); reminder.plantIds.push(plant.id); groups.set(+date, reminder);
+      reminder.names.push(plantDisplayName(plant)); reminder.plantIds.push(plant.id); groups.set(+date, reminder);
     }
   }
   return [...groups.values()].sort((a, b) => +a.date - +b.date);

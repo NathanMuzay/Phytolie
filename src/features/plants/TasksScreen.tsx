@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useAccessibility } from '../../shared/accessibility/AccessibilityProvider';
 import { PlantVisual } from './PlantVisual';
-import { daysUntil, dueDate, type Plant } from '../../shared/model';
+import { plantDisplayName, daysUntil, dueDate, type Plant } from '../../shared/model';
 import { wateringPlan } from './irrigation';
 import { wateringTolerance } from './tolerance';
 import { ActionButton as Action } from '../../shared/ui/ActionButton';
@@ -32,8 +32,8 @@ function CareCard({ plant, disabled, onWatered, onObserve, onOpenPlant }: Pick<P
       <View style={[styles.thumbnail, width < 480 && { width: 64 }]}><PlantVisual plant={plant} style={styles.thumbnailFrame} /></View>
       <View style={styles.plantCopy}>
         <View style={styles.badgeRow}><Text style={[styles.badge, overdue && styles.overdueBadge]}>{overdue ? 'Vérification en retard' : 'À vérifier aujourd’hui'}</Text></View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Ouvrir la fiche de ${plant.name}`} onPress={() => onOpenPlant(plant)} style={styles.plantLink}>
-          <Text style={styles.plantName}>{plant.name} <Text style={styles.arrow}>↗</Text></Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Ouvrir la fiche de ${plantDisplayName(plant)}`} onPress={() => onOpenPlant(plant)} style={styles.plantLink}>
+          <Text style={styles.plantName}>{plantDisplayName(plant)} <Text style={styles.arrow}>↗</Text></Text>
         </Pressable>
         <Text style={styles.small}>{[plant.species, plant.room].filter(Boolean).join(' · ')}</Text>
         <Text style={styles.small}>{plant.lastWatered ? `Dernier arrosage le ${dateLabel(new Date(plant.lastWatered))}` : 'Premier arrosage à renseigner'}</Text>
@@ -47,7 +47,7 @@ function CareCard({ plant, disabled, onWatered, onObserve, onOpenPlant }: Pick<P
       <Action title="J’ai arrosé" disabled={disabled || (!!plant.lastWatered && daysUntil(new Date(plant.lastWatered)) === 0)} onPress={() => onWatered(plant)} />
       <Action title="Encore humide · demain" secondary disabled={disabled} onPress={() => onObserve(plant, 'moist')} />
     </View>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={`${expanded ? 'Masquer' : 'Afficher'} les conseils pour ${plant.name}`} onPress={() => setExpanded(value => !value)} style={styles.disclosure}>
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={`${expanded ? 'Masquer' : 'Afficher'} les conseils pour ${plantDisplayName(plant)}`} onPress={() => setExpanded(value => !value)} style={styles.disclosure}>
       <Text style={styles.disclosureText}>{expanded ? 'Masquer les conseils' : 'Conseils et détails'}</Text><Text style={styles.disclosureText}>{expanded ? '−' : '+'}</Text>
     </Pressable>
     {expanded && <View style={styles.details}>
@@ -104,9 +104,9 @@ export function TasksScreen({ plants: allPlants, disabled, onWatered, onObserve,
           <Text style={styles.small}>Les prochaines vérifications du terreau.</Text>
           {upcoming.map(plant => {
             const date = dueDate(plant);
-            return <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plant.name}, vérification le ${dateLabel(date)}`} onPress={() => onOpenPlant(plant)} style={({ pressed }) => [styles.agendaRow, pressed && { opacity: .5 }]}>
+            return <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plantDisplayName(plant)}, vérification le ${dateLabel(date)}`} onPress={() => onOpenPlant(plant)} style={({ pressed }) => [styles.agendaRow, pressed && { opacity: .5 }]}>
               <View style={styles.calendarDate}><Text style={styles.calendarDay}>{date.getDate()}</Text><Text style={styles.calendarMonth}>{date.toLocaleDateString('fr-FR', { month: 'short' })}</Text></View>
-              <View style={styles.agendaCopy}><Text style={styles.agendaName}>{plant.name}</Text><Text style={styles.small}>{plant.room} · {daysUntil(date) === 1 ? 'demain' : `dans ${daysUntil(date)} jours`}</Text></View><Text style={styles.arrow}>↗</Text>
+              <View style={styles.agendaCopy}><Text style={styles.agendaName}>{plantDisplayName(plant)}</Text><Text style={styles.small}>{plant.room} · {daysUntil(date) === 1 ? 'demain' : `dans ${daysUntil(date)} jours`}</Text></View><Text style={styles.arrow}>↗</Text>
             </Pressable>;
           })}
           {!upcoming.length && <Text style={styles.agendaEmpty}>Aucune vérification à venir pour le moment.</Text>}
@@ -115,8 +115,8 @@ export function TasksScreen({ plants: allPlants, disabled, onWatered, onObserve,
           <Text style={styles.eyebrow}>PRENDRE RACINE</Text>
           <Text accessibilityRole="header" style={styles.sectionTitle}>Rempotage</Text>
           <Text style={styles.small}>Un repère pour vérifier la place des racines.</Text>
-          {repotting.map(plant => <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plant.name}, rempotage à vérifier le ${dateLabel(new Date(plant.repotDate))}`} onPress={() => onOpenPlant(plant)} style={({ pressed }) => [styles.agendaRow, pressed && { opacity: .5 }]}>
-            <View style={styles.agendaCopy}><Text style={styles.agendaName}>{plant.name}</Text><Text style={styles.small}>{dateLabel(new Date(plant.repotDate))}</Text></View>
+          {repotting.map(plant => <Pressable key={plant.id} accessibilityRole="button" accessibilityLabel={`Ouvrir ${plantDisplayName(plant)}, rempotage à vérifier le ${dateLabel(new Date(plant.repotDate))}`} onPress={() => onOpenPlant(plant)} style={({ pressed }) => [styles.agendaRow, pressed && { opacity: .5 }]}>
+            <View style={styles.agendaCopy}><Text style={styles.agendaName}>{plantDisplayName(plant)}</Text><Text style={styles.small}>{dateLabel(new Date(plant.repotDate))}</Text></View>
             {daysUntil(new Date(plant.repotDate)) <= 0 ? <Text style={styles.repotBadge}>À vérifier</Text> : <Text style={styles.arrow}>↗</Text>}
           </Pressable>)}
           {!repotting.length && <Text style={styles.agendaEmpty}>Les dates apparaîtront après l’ajout d’une plante.</Text>}

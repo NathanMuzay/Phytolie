@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { newHome, validateHome, inside, validPosition, estimatePlacement, exposureLabels, type HomeArea, type HomePlan, type PlantPosition, type HomeWindow, type Exposure } from './home';
-import type { Plant } from '../../shared/model';
+import { hasPlantSpecies, plantDisplayName, type Plant } from '../../shared/model';
+import { SpeciesField } from '../plants/SpeciesField';
 import { palette, fonts, useReadableStyles, useThemePalette } from '../../shared/ui/theme';
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 function Action({ title, onPress, disabled = false, expanded }: { title: string; onPress: () => void; disabled?: boolean; expanded?: boolean }) {
@@ -88,7 +89,7 @@ export function PlanCanvas({ home, positions = [], onPoint, drawMode, onDraw, di
     onPanResponderTerminate: () => { start.current = null; setPreview(null); setMovingPoint(null); },
   }), [drawing, moving, interacting, sx, sy, home, onDraw, onPoint]);
   if (!validDimensions) return <Text style={styles.body}>Renseignez des dimensions positives pour afficher le plan.</Text>;
-  return <View style={{ gap: 8 }}>{showMetadata && <Text style={styles.body}>Plan : {home.width} × {home.height} m · Nord à {home.northAngle}° du haut du plan</Text>}<View {...responder.panHandlers}><Pressable accessibilityRole="button" aria-disabled={disabled || (!drawing && !moving && !onPoint)} accessibilityLabel={drawMode ? "Plan du logement : cliquer et glisser pour dessiner une zone. La saisie des coordonnées reste disponible." : placementMode ? "Plan du logement : cliquer ou glisser avec la souris pour placer la plante. Échap annule le déplacement." : "Plan du logement : toucher pour sélectionner un emplacement. Les coordonnées peuvent aussi être saisies dans le formulaire."} onLayout={e => setWidth(e.nativeEvent.layout.width)} onPress={e => { if (!drawMode && !placementMode && !disabled && onPoint) onPoint({ x: Math.round(e.nativeEvent.locationX / sx * 10) / 10, y: Math.round(e.nativeEvent.locationY / sy * 10) / 10 }); }} style={[styles.canvas, { height, ...(Platform.OS === 'web' ? { cursor: drawing ? 'crosshair' : moving ? movingPoint ? 'grabbing' : 'grab' : 'pointer' } : {}) } as ViewStyle]}>
+  return <View style={{ gap: 8 }}>{showMetadata && <Text style={styles.body}>Plan : {home.width} × {home.height} m · Nord à {home.northAngle}° du haut du plan</Text>}<View {...responder.panHandlers} style={Platform.OS === 'web' && interacting ? ({ touchAction: 'none' } as ViewStyle) : undefined}><Pressable accessibilityRole="button" aria-disabled={disabled || (!drawing && !moving && !onPoint)} accessibilityLabel={drawMode ? "Plan du logement : glisser pour dessiner une zone. La saisie des coordonnées reste disponible." : placementMode ? "Plan du logement : toucher, cliquer ou glisser pour placer la plante. Échap annule le déplacement." : "Plan du logement : toucher pour sélectionner un emplacement. Les coordonnées peuvent aussi être saisies dans le formulaire."} onLayout={e => setWidth(e.nativeEvent.layout.width)} onPress={e => { if (!drawMode && !placementMode && !disabled && onPoint) onPoint({ x: Math.round(e.nativeEvent.locationX / sx * 10) / 10, y: Math.round(e.nativeEvent.locationY / sy * 10) / 10 }); }} style={[styles.canvas, { height, ...(Platform.OS === 'web' ? { cursor: drawing ? 'crosshair' : moving ? movingPoint ? 'grabbing' : 'grab' : 'pointer' } : {}) } as ViewStyle]}>
     {home.background && <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={{ uri: home.background }} resizeMode="stretch" style={[StyleSheet.absoluteFill, { opacity: .4 }]} /></View>}
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {Array.from({ length: Math.min(100, Math.floor(home.width)) }, (_, x) => <View key={`x${x}`} style={{ position: 'absolute', left: x * sx, top: 0, bottom: 0, borderLeftWidth: 1, borderColor: '#D8D4BF60' }} />)}
@@ -151,8 +152,8 @@ function PlantDetailsEditor({ home, plant, position, active, disabled, onChange,
     if (validPosition(next, home)) { onPosition(next); setError(''); }
     else setError('Le pin doit rester dans sa zone, avec une hauteur de 0 à 5 m.');
   };
-  return <View style={[styles.card, active && { borderColor: palette.terracotta }]}><Text style={styles.subtitle}>{plant.name || 'Plante sans nom'}</Text><Action title="Sélectionner pour placer avec la souris" disabled={disabled} onPress={onSelect} />
-    <Input label="Nom de la plante" value={plant.name} disabled={disabled} change={name => onChange({ name })} /><Input label="Espèce" value={plant.species} disabled={disabled} change={species => onChange({ species })} />
+  return <View style={[styles.card, active && { borderColor: palette.terracotta }]}><Text style={styles.subtitle}>{plantDisplayName(plant)}</Text><Action title="Sélectionner pour placer" disabled={disabled} onPress={onSelect} />
+    <Input label="Nom de la plante (facultatif)" value={plant.name} disabled={disabled} change={name => onChange({ name })} /><SpeciesField value={plant.species} disabled={disabled} onChange={species => onChange({ species })} />
     <View style={styles.row}><Input label="Hauteur de la plante (cm)" value={plant.height} numeric disabled={disabled} change={v => onChange({ height: v.trim() ? Number(v.replace(',', '.')) : NaN })} /><Input label="Largeur du feuillage (cm, facultatif)" value={plant.width ?? ''} numeric disabled={disabled} change={v => onChange({ width: v.trim() ? Number(v.replace(',', '.')) : undefined })} /><Input label="Diamètre du pot (cm)" value={plant.pot} numeric disabled={disabled} change={v => onChange({ pot: v.trim() ? Number(v.replace(',', '.')) : NaN })} /><Input label="Température (°C)" value={plant.temperature} numeric disabled={disabled} change={v => onChange({ temperature: v.trim() ? Number(v.replace(',', '.')) : NaN })} /></View>
     <Input label="Terreau" value={plant.soil} disabled={disabled} change={soil => onChange({ soil })} />
     <Text style={styles.label}>{position ? `Zone : ${home.areas.find(a => a.id === position.areaId)?.name ?? 'à replacer'}` : 'Plante non placée'}</Text><View style={styles.row}>{home.areas.map(a => <Action key={a.id} title={`${position?.areaId === a.id ? '✓ ' : ''}${a.name}`} disabled={disabled} onPress={() => { onPosition({ areaId: a.id, x: a.x + a.width / 2, y: a.y + a.height / 2, height: position?.height ?? .5, preference: position?.preference }); setError(''); }} />)}</View>
@@ -178,6 +179,7 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [importing, setImporting] = useState(false);
   const area = draft.areas.find(a => a.id === selected) ?? draft.areas[0], plant = draftPlants.find(p => p.id === plantId) ?? draftPlants[0];
   const blocked = disabled || importing;
+  const plantOptions = draftPlants.map(p => ({ id: p.id, name: plantDisplayName(p) }));
   const change = (next: HomePlan) => { setDraft(next); setMessage('Modifications non enregistrées.'); setError(''); };
   function updateArea(patch: Partial<HomeArea>) { if (area) change({ ...draft, areas: draft.areas.map(a => a.id === area.id ? { ...a, ...patch } : a) }); }
   function addArea(kind: 'room' | 'garden', point = { x: 0, y: 0 }) {
@@ -197,13 +199,18 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
       change({ ...draft, background });
     } catch (e) { setError(e instanceof Error ? e.message : 'Import impossible.'); } finally { setImporting(false); }
   }
+  function validatePlants() {
+    const originalSpecies = new Map(plants.map(p => [p.id, p.species]));
+    return draftPlants.map(p => {
+      if (!hasPlantSpecies(p.species) && p.species !== originalSpecies.get(p.id)) throw new Error('Renseignez l’espèce de la plante modifiée.');
+      if (!Number.isFinite(p.height) || p.height <= 0 || !Number.isFinite(p.pot) || p.pot <= 0 || p.pot > 100 || !Number.isFinite(p.temperature) || p.temperature < -10 || p.temperature > 50 || (p.width != null && (!Number.isFinite(p.width) || p.width < 1 || p.width > 1000))) throw new Error(`Vérifiez les dimensions et la température de ${plantDisplayName(p)}.`);
+      return { ...p, name: p.name.trim(), species: hasPlantSpecies(p.species) ? p.species.trim() : p.species };
+    });
+  }
   async function commit() {
     try {
       validateHome(draft);
-      const editedPlants = draftPlants.map(p => ({ ...p, name: p.name.trim(), species: p.species.trim() || 'Espèce à préciser' }));
-      for (const p of editedPlants) {
-        if (!p.name || !Number.isFinite(p.height) || p.height <= 0 || !Number.isFinite(p.pot) || p.pot <= 0 || p.pot > 100 || !Number.isFinite(p.temperature) || p.temperature < -10 || p.temperature > 50 || (p.width != null && (!Number.isFinite(p.width) || p.width < 1 || p.width > 1000))) throw new Error(`Vérifiez les dimensions, le nom et la température de ${p.name || 'la plante sans nom'}.`);
-      }
+      const editedPlants = validatePlants();
       const cleaned = Object.fromEntries(editedPlants.map(p => [p.id, positions[p.id] && validPosition(positions[p.id]!, draft) ? positions[p.id] : undefined]));
       const removed = Object.keys(positions).filter(key => positions[key] && !cleaned[key]).length;
       if (await onSave(draft, cleaned, editedPlants)) { setPositions(cleaned); setDraftPlants(editedPlants); setMessage(`Plan et emplacements enregistrés.${removed ? ` ${removed} pin(s) retiré(s) car leur zone a été supprimée ou déplacée.` : ''}`); setError(''); }
@@ -212,18 +219,18 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
   }
   return <View style={{ gap: 24 }}><Text accessibilityRole="header" style={styles.title}>Ma maison</Text>
     <View style={[styles.workspace, { flexDirection: sideBySide ? 'row' : 'column' }]}>
-      {Platform.OS === 'web' ? <View style={[styles.card, sideBySide && styles.workspacePanel]}>
+      {sideBySide ? <View style={[styles.card, sideBySide && styles.workspacePanel]}>
         <View style={styles.row}><Text style={[styles.subtitle, { flex: 1 }]}>Plan actuel</Text><Action title="Éditer le plan ↗" disabled={blocked} onPress={() => setEditorOpen(true)} /></View>
         <Text style={styles.body}>{draft.areas.length} zones · {draft.areas.reduce((sum, a) => sum+a.width*a.height, 0).toFixed(1)} m² · {draft.width} × {draft.height} m</Text>
-        <PlanCanvas home={draft} positions={draftPlants.flatMap(p => positions[p.id] ? [{ name: p.name, position: positions[p.id]! }] : [])} disabled showMetadata />
+        <PlanCanvas home={draft} positions={draftPlants.flatMap(p => positions[p.id] ? [{ name: plantDisplayName(p), position: positions[p.id]! }] : [])} disabled showMetadata />
         <Text style={styles.hint}>Ouvrez l’éditeur plein écran pour dessiner les pièces, murs droits ou arrondis, portes et fenêtres.</Text>
         {!draft.areas.length && <Action title="Créer ma maison" disabled={blocked} onPress={() => setEditorOpen(true)} />}
       </View> : (<View style={[styles.card, sideBySide && styles.workspacePanel]}><Text style={styles.subtitle}>Dessin de la maison</Text>
     <View style={styles.row}><Action title={importing ? 'Import…' : 'Importer un plan (image)'} disabled={blocked} onPress={() => void importPlan()} />{draft.background && <Action title="Retirer le fond importé" disabled={blocked} onPress={() => change({ ...draft, background: undefined })} />}<Action title={`${tool === 'room' ? '✓ ' : ''}Dessiner une pièce`} disabled={blocked} onPress={() => { setTool('room'); setDrawError(''); }} /><Action title={`${tool === 'garden' ? '✓ ' : ''}Dessiner un jardin`} disabled={blocked} onPress={() => { setTool('garden'); setDrawError(''); }} /><Action title="Sélectionner" disabled={blocked} onPress={() => { setTool('select'); setDrawError(''); }} /></View>
     <Text style={styles.body}>{tool === 'select' ? 'Cliquez sur une zone pour la sélectionner.' : 'Cliquez-glissez pour dessiner. Échap annule le tracé.'}</Text>
-    <PlanCanvas home={draft} positions={draftPlants.flatMap(p => positions[p.id] ? [{ name: p.name, position: positions[p.id]! }] : [])} disabled={blocked} drawMode={tool === 'select' ? undefined : tool} onDraw={rectangle => {
+    <PlanCanvas home={draft} positions={draftPlants.flatMap(p => positions[p.id] ? [{ name: plantDisplayName(p), position: positions[p.id]! }] : [])} disabled={blocked} drawMode={tool === 'select' ? undefined : tool} onDraw={rectangle => {
       if (blocked || tool === 'select') return;
-      if (rectangle.width < .5 || rectangle.height < .5) { setDrawError('Tracez une zone d’au moins 0,5 × 0,5 m en maintenant le bouton de la souris.'); return; }
+      if (rectangle.width < .5 || rectangle.height < .5) { setDrawError('Tracez une zone d’au moins 0,5 × 0,5 m en faisant glisser le doigt ou le pointeur.'); return; }
       const next: HomeArea = { ...rectangle, id: id(), name: tool === 'room' ? 'Nouvelle pièce' : 'Jardin', kind: tool, windows: [], shade: 'none' };
       if (draft.areas.some(a => Math.min(a.x + a.width, next.x + next.width) > Math.max(a.x, next.x) + .001 && Math.min(a.y + a.height, next.y + next.height) > Math.max(a.y, next.y) + .001)) { setDrawError('Cette zone chevauche une autre zone. Retracez-la dans un espace libre.'); return; }
       setDrawError(''); change({ ...draft, areas: [...draft.areas, next] }); setSelected(next.id);
@@ -233,17 +240,17 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
         {coordinates && <View style={{ gap: 16 }}><View style={styles.row}>{(['width', 'height'] as const).map(key => <Input key={key} disabled={blocked} numeric label={key === 'width' ? 'Largeur du plan (m)' : 'Hauteur du plan (m)'} value={draft[key]} change={s => change({ ...draft, [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}</View><View style={styles.row}><Action title="＋ Pièce par coordonnées" disabled={blocked} onPress={() => addArea('room')} /><Action title="＋ Jardin par coordonnées" disabled={blocked} onPress={() => addArea('garden')} /></View>{area && <><Text style={styles.label}>Coordonnées de {area.name}</Text>
 <View style={styles.row}>{(['x', 'y', 'width', 'height'] as const).map(key => <Input key={key} numeric disabled={blocked} label={{ x: 'Zone X (m)', y: 'Zone Y (m)', width: 'Largeur de la zone (m)', height: 'Profondeur de la zone (m)' }[key]} value={area[key]} change={s => updateArea({ [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}</View></>}</View>}
       </View>)}
-      <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text style={styles.subtitle}>Plantes à placer</Text><Text style={styles.body}>Choisissez la plante à placer.</Text><Dropdown label="Plante à placer" options={draftPlants} value={plant?.id ?? ''} disabled={blocked} onChange={setPlantId} />{plant ? <PlacementPicker key={plant.id} embedded home={draft} species={plant.species} position={positions[plant.id]} disabled={blocked} onChange={p => { setPositions(current => ({ ...current, [plant.id]: p })); setMessage('Emplacements non enregistrés.'); }} /> : <><PlanCanvas home={draft} disabled /><Text style={styles.body}>Ajoutez une plante à votre collection pour la placer sur le plan.</Text></>}</View>
+      <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text style={styles.subtitle}>Plantes à placer</Text><Text style={styles.body}>Choisissez la plante à placer.</Text><Dropdown label="Plante à placer" options={plantOptions} value={plant?.id ?? ''} disabled={blocked} onChange={setPlantId} />{plant ? <PlacementPicker key={plant.id} embedded home={draft} species={plant.species} position={positions[plant.id]} disabled={blocked} onChange={p => { setPositions(current => ({ ...current, [plant.id]: p })); setMessage('Emplacements non enregistrés.'); }} /> : <><PlanCanvas home={draft} disabled /><Text style={styles.body}>Ajoutez une plante à votre collection pour la placer sur le plan.</Text></>}</View>
     </View>
     <Action title={details ? 'Moins de détails' : 'Plus de détails'} expanded={details} onPress={() => setDetails(v => !v)} />
     {details && <View style={{ gap: 24 }}>
-    {Platform.OS !== 'web' && <View style={styles.card}><Text style={styles.subtitle}>Orientation et exposition</Text><View style={styles.row}>{(['northAngle', 'floor', 'month'] as const).map(key => <Input key={key} disabled={blocked} numeric label={{ northAngle: 'Orientation du haut du plan (0° nord, 90° est)', floor: 'Étage (0 = rez-de-chaussée)', month: 'Mois étudié (1 à 12)' }[key]} value={draft[key]} change={s => change({ ...draft, [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}<Input label="Latitude (−90 à 90, nécessaire au calcul solaire)" value={draft.latitude ?? ''} numeric disabled={blocked} change={s => change({ ...draft, latitude: s.trim() ? Number(s.replace(',', '.')) : undefined })} /></View>{latitude != null && <Action title="Utiliser la latitude de ma ville" disabled={blocked} onPress={() => change({ ...draft, latitude })} />}<Text style={styles.hint}>Ville dans « Mon espace ». Calcul par mois, en heures solaires, sans météo. L’étage est informatif.</Text></View>}
+    {!sideBySide && <View style={styles.card}><Text style={styles.subtitle}>Orientation et exposition</Text><View style={styles.row}>{(['northAngle', 'floor', 'month'] as const).map(key => <Input key={key} disabled={blocked} numeric label={{ northAngle: 'Orientation du haut du plan (0° nord, 90° est)', floor: 'Étage (0 = rez-de-chaussée)', month: 'Mois étudié (1 à 12)' }[key]} value={draft[key]} change={s => change({ ...draft, [key]: s.trim() ? Number(s.replace(',', '.')) : NaN })} />)}<Input label="Latitude (−90 à 90, nécessaire au calcul solaire)" value={draft.latitude ?? ''} numeric disabled={blocked} change={s => change({ ...draft, latitude: s.trim() ? Number(s.replace(',', '.')) : undefined })} /></View>{latitude != null && <Action title="Utiliser la latitude de ma ville" disabled={blocked} onPress={() => change({ ...draft, latitude })} />}<Text style={styles.hint}>Ville dans « Mon espace ». Calcul par mois, en heures solaires, sans météo. L’étage est informatif.</Text></View>}
       <View style={[styles.workspace, { flexDirection: sideBySide ? 'row' : 'column' }]}>
-        {Platform.OS !== 'web' && <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Pièces et jardins · {draft.areas.length}</Text><Dropdown label="Pièce ou jardin à afficher" options={draft.areas} value={area?.id ?? ''} disabled={blocked} onChange={value => { setSelected(value); setTool('select'); }} /><ScrollView key={area?.id} accessibilityLabel="Détails de la pièce ou du jardin sélectionné" style={[styles.detailsScroll, { height: 440 }]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
+        {!sideBySide && <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Pièces et jardins · {draft.areas.length}</Text><Dropdown label="Pièce ou jardin à afficher" options={draft.areas} value={area?.id ?? ''} disabled={blocked} onChange={value => { setSelected(value); setTool('select'); }} /><ScrollView key={area?.id} accessibilityLabel="Détails de la pièce ou du jardin sélectionné" style={[styles.detailsScroll, { height: 440 }]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
           {draft.areas.filter(a => a.id === area?.id).map(a => <AreaDetails key={a.id} area={a} active={area?.id === a.id} blocked={blocked} onSelect={() => { setSelected(a.id); setTool('select'); }} onChange={next => change({ ...draft, areas: draft.areas.map(item => item.id === a.id ? next : item) })} onRemove={() => { const next = removeArea({ home: draft, positions }, a.id); change(next.home); setPositions(next.positions); if (selected === a.id) setSelected(''); }} />)}
           {!draft.areas.length && <Text style={styles.body}>Dessinez une pièce ou un jardin pour afficher ses détails ici.</Text>}
         </ScrollView></View>}
-        <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Plantes · {draftPlants.length}</Text><Dropdown label="Plante à afficher" options={draftPlants} value={plant?.id ?? ''} disabled={blocked} onChange={setPlantId} /><ScrollView key={plant?.id} accessibilityLabel="Détails de la plante sélectionnée" style={[styles.detailsScroll, !sideBySide && { height: 440 }, Platform.OS === 'web' && ({ overflowY: 'scroll', scrollbarGutter: 'stable', overscrollBehavior: 'contain' } as ViewStyle)]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
+        <View style={[styles.card, sideBySide && styles.workspacePanel]}><Text accessibilityRole="header" style={styles.subtitle}>Plantes · {draftPlants.length}</Text><Dropdown label="Plante à afficher" options={plantOptions} value={plant?.id ?? ''} disabled={blocked} onChange={setPlantId} /><ScrollView key={plant?.id} accessibilityLabel="Détails de la plante sélectionnée" style={[styles.detailsScroll, !sideBySide && { height: 440 }, Platform.OS === 'web' && ({ overflowY: 'scroll', scrollbarGutter: 'stable', overscrollBehavior: 'contain' } as ViewStyle)]} contentContainerStyle={styles.detailsContent} showsVerticalScrollIndicator persistentScrollbar nestedScrollEnabled keyboardShouldPersistTaps="handled">
           {draftPlants.filter(p => p.id === plant?.id).map(p => <PlantDetailsEditor key={p.id} home={draft} plant={p} position={positions[p.id]} active={plant?.id === p.id} disabled={blocked} onSelect={() => setPlantId(p.id)} onChange={patch => { setDraftPlants(current => current.map(item => {
             if (item.id !== p.id) return item;
             const next = { ...item, ...patch };
@@ -256,9 +263,13 @@ export function HomeScreen({ home, plants, latitude, disabled, onSave }: { home?
       </View>
     </View>}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}{!!message && <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text>}<Action title="Enregistrer le plan et les emplacements" disabled={blocked} onPress={() => void commit()} />
-    {editorOpen && <DesktopHomeEditor initial={{ home: draft, positions }} plants={draftPlants} onClose={() => setEditorOpen(false)} onApply={async (snapshot: EditorSnapshot) => {
+    {sideBySide && editorOpen && <DesktopHomeEditor initial={{ home: draft, positions }} plants={draftPlants} onClose={() => setEditorOpen(false)} onApply={async (snapshot: EditorSnapshot) => {
       const cleaned = Object.fromEntries(draftPlants.map(p => [p.id, snapshot.positions[p.id] && validPosition(snapshot.positions[p.id]!, snapshot.home) ? snapshot.positions[p.id] : undefined]));
-      if (!await onSave(snapshot.home, cleaned, draftPlants)) return false;
+      let editedPlants;
+      try { editedPlants = validatePlants(); }
+      catch (error) { setError(error instanceof Error ? error.message : 'Fiche invalide.'); setEditorOpen(false); return false; }
+      if (!await onSave(snapshot.home, cleaned, editedPlants)) return false;
+      setDraftPlants(editedPlants);
       setDraft(snapshot.home); setPositions(cleaned); setEditorOpen(false); setMessage('Plan et emplacements enregistrés.'); setError(''); return true;
     }} />}
 

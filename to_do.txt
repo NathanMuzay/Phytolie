@@ -1,3 +1,4 @@
-chercher l'espece d'une plante 
-obligation d'avoir une espece mais pas un nom
-features web avec visu tel sinon format classique
+importer plan maison et faire le plan tout seul
+scan code barre terreau, reconnaissance et adaptation
+scan code barre palnte pour savoir si elle sera bien dans l'appart
+avis communautaire

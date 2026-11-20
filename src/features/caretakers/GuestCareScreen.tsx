@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton } from '../../shared/ui/ActionButton';
-import { daysUntil } from '../../shared/model';
+import { plantDisplayName, daysUntil } from '../../shared/model';
 import { fonts, palette, useReadableStyles } from '../../shared/ui/theme';
 import { loadGuestGarden, waterGuestPlant, type SharedGarden } from '../accounts/accountApi';
 import { wateringPlan } from '../plants/irrigation';
@@ -63,7 +63,7 @@ export function GuestCareScreen({ invitation, onExit }: { invitation: string; on
           const wateredToday = !!plant.lastWatered && daysUntil(new Date(plant.lastWatered)) === 0;
           return <View key={plant.id} style={styles.card}>
             <PlantVisual plant={plant} style={{ maxHeight: 260 }} />
-            <View style={styles.copy}><Text accessibilityRole="header" style={styles.heading}>{plant.name}</Text><Text style={styles.small}>{plant.species} · {plant.room}</Text><Text style={styles.label}>Vérification : {plan.nextCheck.toLocaleDateString('fr-FR')}</Text><Text style={styles.body}>{plan.instruction}</Text>{plan.amount > 0 && <Text style={styles.body}>{plan.amount} ml indicatifs, seulement si le terreau a besoin d’eau.</Text>}{!!plant.wateringAdvice && <Text style={styles.small}>{plant.wateringAdvice}</Text>}<Text style={styles.small}>Dernier arrosage : {plant.lastWatered ? new Date(plant.lastWatered).toLocaleString('fr-FR') : 'Non renseigné'}</Text><ActionButton title={wateredToday ? 'Arrosage déjà enregistré aujourd’hui' : busy ? 'Enregistrement…' : 'J’ai arrosé'} fullWidth disabled={busy || loading || wateredToday} onPress={() => void water(plant.id)} /></View>
+            <View style={styles.copy}><Text accessibilityRole="header" style={styles.heading}>{plantDisplayName(plant)}</Text><Text style={styles.small}>{plant.species.trim() !== plantDisplayName(plant) ? `${plant.species} · ` : ''}{plant.room}</Text><Text style={styles.label}>Vérification : {plan.nextCheck.toLocaleDateString('fr-FR')}</Text><Text style={styles.body}>{plan.instruction}</Text>{plan.amount > 0 && <Text style={styles.body}>{plan.amount} ml indicatifs, seulement si le terreau a besoin d’eau.</Text>}{!!plant.wateringAdvice && <Text style={styles.small}>{plant.wateringAdvice}</Text>}<Text style={styles.small}>Dernier arrosage : {plant.lastWatered ? new Date(plant.lastWatered).toLocaleString('fr-FR') : 'Non renseigné'}</Text><ActionButton title={wateredToday ? 'Arrosage déjà enregistré aujourd’hui' : busy ? 'Enregistrement…' : 'J’ai arrosé'} fullWidth disabled={busy || loading || wateredToday} onPress={() => void water(plant.id)} /></View>
           </View>;
         })}
       </>}
